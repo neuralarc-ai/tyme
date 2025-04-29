@@ -240,62 +240,36 @@ export function CurrentLocationDisplay({
   const formattedLocation = formatLocation(location)
 
   return (
-    <div className="relative w-full h-full">
-      <div 
-        className="absolute inset-0 transition-all duration-1000"
-        style={{ background: timeInfo.gradient }}
-      />
-      <div className={`relative z-10 flex flex-col items-center justify-center h-full p-8 ${timeInfo.textColor}`}>
-        <div className="flex items-center justify-center gap-8">
-          {/* Left side - Time */}
-          <div className="flex flex-col items-center">
-            <div className="flex items-baseline">
-              <h1 className="text-[125px] font-black tracking-tight boldonse-regular">
-                {time.split(' ')[0]}
-              </h1>
-              <span className="text-2xl font-medium ml-2 opacity-70">
-                {time.split(' ')[1]}
-              </span>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className={`h-32 w-px ${timeInfo.textColor === 'text-black' ? 'bg-black/20' : 'bg-white/20'}`} />
-
-          {/* Right side - Weather */}
-          {weather && (
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-2">
-                {getWeatherIcon(weather.weather[0].main, false)}
-                <p className="text-4xl font-medium">{Math.round(weather.main.temp)}°C</p>
-              </div>
-              <p className="mt-2 text-xl capitalize">
-                {weather.weather[0].description}
-              </p>
-              <div className="mt-2 flex gap-4 text-sm">
-                <span>Humidity: {weather.main.humidity}%</span>
-                <span>Wind: {Math.round(weather.wind.speed * 3.6)} km/h</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom - Location, Date and Timezone */}
-        {formattedLocation && (
-          <div className="mt-8 text-center">
-            <p className="text-2xl font-medium opacity-90">
-              {formattedLocation}
-            </p>
-            <p className="mt-2 text-xl opacity-90">
-              {date}
-            </p>
-            {timezone && (
-              <p className="mt-2 text-xl opacity-70">
-                {getTimezoneAbbreviation(timezone)}
-              </p>
+    <div className="grain w-full h-full bg-black">
+      <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            {weather && (
+              <>
+                <span className="text-4xl font-light text-white">
+                  {getWeatherIcon(weather.weather[0].main, false)}
+                </span>
+                <span className="text-4xl font-light text-white">
+                  {Math.round(weather.main.temp)}°C
+                </span>
+              </>
             )}
           </div>
-        )}
+
+          <div className="text-[220px] font-black tracking-tight text-white mb-4">
+            {time}
+          </div>
+
+          <div className="text-xl font-light text-white/50 mb-2">
+            {formattedLocation}
+          </div>
+
+          <div className="h-px w-32 bg-white/20 my-4 mx-auto" />
+
+          <div className="text-lg font-light text-white/50">
+            {date}
+          </div>
+        </div>
       </div>
     </div>
   )

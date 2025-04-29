@@ -187,7 +187,7 @@ const calculateLocalTime = (targetTime: string, targetTimezone: string, currentT
   }
 }
 
-export function TimeDisplay({ searchQuery }: TimeDisplayProps) {
+export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
   const [timezone, setTimezone] = useState<string>("")
   const [location, setLocation] = useState<string>("")
   const [showPermission, setShowPermission] = useState<boolean>(true)

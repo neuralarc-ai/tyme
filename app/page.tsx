@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { TimeDisplay } from "@/components/time-display"
-import BottomSection from "@/components/bottom-section"
+import TimeDisplay from "@/components/time-display"
+import { BottomSection } from "@/components/bottom-section"
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>("")
