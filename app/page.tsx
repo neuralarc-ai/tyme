@@ -13,10 +13,10 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-screen w-full overflow-hidden">
-      <div className="h-1/2">
+      <div className="h-2/3">
         <TimeDisplay searchQuery={searchQuery} />
       </div>
-      <div className="h-1/2">
+      <div className="h-1/3">
         <BottomSection onSubmit={handleQuerySubmit} />
       </div>
     </main>

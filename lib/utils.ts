@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getTimeOfDayGradient(hour: number): { gradient: string; icon: "sun" | "moon" } {
   // Early morning (6 AM)
-  if (hour >= 6 && hour < 10) {
+  if (hour >= 5 && hour < 10) {
     return {
       gradient:
         "bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-yellow-200 via-orange-300 to-red-400",
@@ -30,11 +30,19 @@ export function getTimeOfDayGradient(hour: number): { gradient: string; icon: "s
       icon: "sun",
     }
   }
-  // Night (8 PM - 5 AM)
+  // Late night (11 PM - 4 AM)
+  else if (hour >= 23 || hour < 4) {
+    return {
+      gradient:
+        "bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-slate-900 via-gray-900 to-black",
+      icon: "moon",
+    }
+  }
+  // Early night (8 PM - 10 PM)
   else {
     return {
       gradient:
-        "bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-700 via-blue-900 to-slate-900",
+        "bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-700 via-dark-blue-900 to-slate-900",
       icon: "moon",
     }
   }

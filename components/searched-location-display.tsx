@@ -193,7 +193,7 @@ export function SearchedLocationDisplay({
           {/* Left side - Time */}
           <div className="flex flex-col items-center">
             <div className="flex items-baseline">
-              <h1 className="text-[125px] font-black tracking-tight">
+              <h1 className="text-[125px] font-black tracking-tight boldonse-regular">
                 {formattedTime.split(' ')[0]}
               </h1>
               <span className="text-2xl font-medium ml-2 opacity-70">

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Boldonse&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -115,4 +117,10 @@
   opacity: 0.2;
   mix-blend-mode: soft-light;
   pointer-events: none;
+}
+
+.boldonse-regular {
+  font-family: "Boldonse", system-ui;
+  font-weight: 400;
+  font-style: normal;
 }
