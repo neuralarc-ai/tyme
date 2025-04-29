@@ -1,105 +1,123 @@
 export async function getTimezone(latitude: number, longitude: number) {
-  const timestamp = Math.floor(Date.now() / 1000)
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  
-  if (!apiKey) {
-    throw new Error("Google Maps API key is not configured")
-  }
+  try {
+    const timestamp = Math.floor(Date.now() / 1000)
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    )
 
-  // Get timezone information
-  const timezoneResponse = await fetch(
-    `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${apiKey}`
-  )
-
-  if (!timezoneResponse.ok) {
-    throw new Error("Failed to fetch timezone data")
-  }
-
-  const timezoneData = await timezoneResponse.json()
-  console.log('Timezone data from API:', timezoneData) // Debug log
-
-  // Get city information using reverse geocoding
-  const geocodeResponse = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
-  )
-
-  if (!geocodeResponse.ok) {
-    throw new Error("Failed to fetch location data")
-  }
-
-  const geocodeData = await geocodeResponse.json()
-  
-  // Extract city and country from the geocoding results
-  let city = ""
-  let country = ""
-  
-  if (geocodeData.results && geocodeData.results.length > 0) {
-    const addressComponents = geocodeData.results[0].address_components
-    for (const component of addressComponents) {
-      if (component.types.includes("locality")) {
-        city = component.long_name
-      }
-      if (component.types.includes("country")) {
-        country = component.long_name
-      }
+    if (!response.ok) {
+      throw new Error("Failed to fetch timezone")
     }
-  }
 
-  // Ensure we're using the correct timezone ID for India
-  const timeZoneId = timezoneData.timeZoneId === 'Asia/Calcutta' ? 'Asia/Kolkata' : timezoneData.timeZoneId
+    const data = await response.json()
+    
+    if (data.status !== "OK") {
+      throw new Error(data.errorMessage || "Invalid timezone response")
+    }
 
-  return {
-    timeZoneId,
-    timeZoneName: timezoneData.timeZoneName,
-    rawOffset: timezoneData.rawOffset,
-    dstOffset: timezoneData.dstOffset,
-    location: city && country ? `${city}, ${country}` : "Unknown Location"
+    // Get city and country through reverse geocoding
+    const geocodeResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    )
+
+    if (!geocodeResponse.ok) {
+      throw new Error("Failed to fetch location")
+    }
+
+    const geocodeData = await geocodeResponse.json()
+    
+    if (geocodeData.status !== "OK") {
+      throw new Error(geocodeData.errorMessage || "Invalid geocode response")
+    }
+
+    // Extract city and country from the first result
+    const addressComponents = geocodeData.results[0].address_components
+    const city = addressComponents.find((component: any) => 
+      component.types.includes("locality") || 
+      component.types.includes("administrative_area_level_1")
+    )?.long_name
+
+    const country = addressComponents.find((component: any) => 
+      component.types.includes("country")
+    )?.long_name
+
+    // Calculate total offset including DST
+    const totalOffset = (data.rawOffset + data.dstOffset) / 3600 // Convert to hours
+
+    return {
+      timeZoneId: data.timeZoneId,
+      timeZoneName: data.timeZoneName,
+      rawOffset: data.rawOffset,
+      dstOffset: data.dstOffset,
+      totalOffset: totalOffset,
+      location: city && country ? `${city}, ${country}` : "Unknown Location"
+    }
+  } catch (error) {
+    console.error("Error getting timezone:", error)
+    throw error
   }
 }
 
 export function getTimezoneAbbreviation(timezoneId: string): string {
-  // Common timezone abbreviations mapping
-  const timezoneMap: { [key: string]: string } = {
-    'Asia/Kolkata': 'IST',
-    'Asia/Calcutta': 'IST', // Alternative name
-    'Asia/Colombo': 'IST',  // Sri Lanka also uses IST
-    'America/New_York': 'EST',
-    'America/Chicago': 'CST',
-    'America/Denver': 'MST',
-    'America/Los_Angeles': 'PST',
-    'Europe/London': 'GMT',
-    'Europe/Paris': 'CET',
-    'Asia/Tokyo': 'JST',
-    'Australia/Sydney': 'AEST',
-    'Pacific/Auckland': 'NZST'
-  }
-
-  // First check if we have a direct mapping
-  if (timezoneMap[timezoneId]) {
-    return timezoneMap[timezoneId]
-  }
-
-  // If no direct mapping, try to get the timezone name
   try {
-    const date = new Date()
-    const options: Intl.DateTimeFormatOptions = {
-      timeZone: timezoneId,
-      timeZoneName: 'short'
-    }
+    // Create date objects for both timezones
+    const now = new Date()
+    const targetDate = new Date(now.toLocaleString('en-US', { timeZone: timezoneId }))
     
-    const formatter = new Intl.DateTimeFormat('en-US', options)
-    const parts = formatter.formatToParts(date)
-    const timeZonePart = parts.find(part => part.type === 'timeZoneName')
-    const timezoneName = timeZonePart?.value || ''
-
-    // Special case for India's timezone
-    if (timezoneName.includes('GMT+5:30') || timezoneName.includes('GMT+05:30')) {
-      return 'IST'
-    }
-
-    return timezoneName || timezoneId
+    // Get the timezone offset in hours
+    const offset = targetDate.getTimezoneOffset() / 60
+    
+    // Format the offset with sign
+    const sign = offset > 0 ? '-' : '+'
+    const absOffset = Math.abs(offset)
+    const hours = Math.floor(absOffset)
+    const minutes = Math.round((absOffset - hours) * 60)
+    
+    // Return formatted timezone string
+    return `GMT${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
   } catch (error) {
     console.error('Error getting timezone abbreviation:', error)
-    return timezoneId
+    return timezoneId.split('/').pop() || timezoneId
+  }
+}
+
+export function convertTimeBetweenTimezones(time: string, fromTimezone: string, toTimezone: string): string {
+  try {
+    // Parse the input time
+    const [timePart, period] = time.split(' ')
+    const [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
+    
+    // Convert to 24-hour format
+    let targetHours = hours
+    if (period) {
+      if (period.toLowerCase() === 'pm' && hours < 12) {
+        targetHours += 12
+      } else if (period.toLowerCase() === 'am' && hours === 12) {
+        targetHours = 0
+      }
+    }
+
+    // Create date objects for both timezones
+    const now = new Date()
+    const fromDate = new Date(now.toLocaleString('en-US', { timeZone: fromTimezone }))
+    const toDate = new Date(now.toLocaleString('en-US', { timeZone: toTimezone }))
+
+    // Get the timezone offsets in hours
+    const fromOffset = fromDate.getTimezoneOffset() / 60
+    const toOffset = toDate.getTimezoneOffset() / 60
+
+    // Calculate the time difference (inverse the sign because getTimezoneOffset returns negative for positive offsets)
+    const timeDiff = toOffset - fromOffset
+
+    // Calculate the converted time
+    let convertedHours = targetHours + timeDiff
+    if (convertedHours < 0) convertedHours += 24
+    if (convertedHours >= 24) convertedHours -= 24
+
+    // Format the time
+    return `${String(convertedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  } catch (error) {
+    console.error('Error converting time between timezones:', error)
+    return '00:00'
   }
 } 
