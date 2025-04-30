@@ -1,8 +1,6 @@
 interface TimezoneData {
   timeZoneId: string
   timeZoneName: string
-  rawOffset: number
-  dstOffset: number
 }
 
 export async function getGoogleTimezone(latitude: number, longitude: number): Promise<TimezoneData> {
@@ -29,8 +27,6 @@ export async function getGoogleTimezone(latitude: number, longitude: number): Pr
 
   return {
     timeZoneId: data.timeZoneId,
-    timeZoneName: data.timeZoneName,
-    rawOffset: data.rawOffset,
-    dstOffset: data.dstOffset
+    timeZoneName: data.timeZoneName
   }
 } 

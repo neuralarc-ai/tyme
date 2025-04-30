@@ -1,5 +1,6 @@
+"use client"
+
 import { useState, useEffect } from "react"
-import { getTimezone } from "@/lib/timezone"
 import { getGoogleTimezone } from "@/lib/google-timezone"
 import { LocationPermission } from "./location-permission"
 import { parseTimeQuery } from "@/lib/openai"
@@ -7,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { CurrentLocationDisplay } from "./current-location-display"
 import { SearchedLocationDisplay } from "./searched-location-display"
+import { useToast } from "@/components/ui/use-toast"
 
 interface TimeDisplayProps {
   searchQuery?: string
@@ -195,6 +197,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [weather, setWeather] = useState<any>(null)
+  const { toast } = useToast()
 
   const fetchWeather = async (lat: number, lon: number) => {
     try {
@@ -234,15 +237,75 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
           setIsLoading(true)
           const result = await parseTimeQuery(searchQuery)
           
-          if (result.hasTime && result.time && result.timezone) {
+          if (result.error || !result.location || !result.timezone) {
+            toast({
+              variant: "destructive",
+              title: "Invalid Query",
+              description: "Please ask about time in a specific location. For example: 'What time is it in Tokyo?' or 'Time in New York'",
+            })
+            setSearchResult(null)
+            return
+          }
+
+          if (result.hasTime) {
+            // For queries with specific time, calculate the converted time
+            const [timePart, period] = result.time!.split(' ')
+            let [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
+            
+            // Convert to 24-hour format
+            if (period?.toLowerCase() === 'pm' && hours < 12) hours += 12
+            if (period?.toLowerCase() === 'am' && hours === 12) hours = 0
+
+            // Create date objects for both timezones
+            const now = new Date()
+            const targetDate = new Date(now.toLocaleString('en-US', { timeZone: result.timezone }))
+            const currentDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+
+            // Get the timezone offsets in hours
+            const targetOffset = targetDate.getTimezoneOffset() / 60
+            const currentOffset = currentDate.getTimezoneOffset() / 60
+
+            // Calculate the time difference (inverse the sign because getTimezoneOffset returns negative for positive offsets)
+            const timeDiff = currentOffset - targetOffset
+
+            // Calculate the local time
+            let localHours = hours + timeDiff
+            if (localHours < 0) localHours += 24
+            if (localHours >= 24) localHours -= 24
+
+            // Format the time
+            const displayHours = localHours % 12 || 12
+            const displayPeriod = localHours >= 12 ? 'PM' : 'AM'
+            const currentLocationTime = `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${displayPeriod}`
+
             setSearchResult({
               ...result,
               time: result.time,
               date: result.date || null,
-              currentLocationTime: result.currentLocationTime || null
+              currentLocationTime
             })
           } else {
-            setSearchResult(result)
+            // For location-only queries, get current time in that location
+            const now = new Date()
+            const currentTime = now.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: result.timezone
+            })
+            
+            setSearchResult({
+              ...result,
+              time: currentTime,
+              date: now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: result.timezone
+              }),
+              currentLocationTime: null
+            })
           }
 
           // Get weather for the searched location
@@ -257,14 +320,19 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
           }
         } catch (error) {
           console.error("Error processing search:", error)
-          setError("Error processing search query")
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Please ask about time in a specific location. For example: 'What time is it in Tokyo?' or 'Time in New York'",
+          })
+          setSearchResult(null)
         } finally {
           setIsLoading(false)
         }
       }
       handleSearch()
     }
-  }, [searchQuery])
+  }, [searchQuery, timezone, toast])
 
   const handleLocationGranted = async (position: GeolocationPosition) => {
     try {
@@ -352,10 +420,12 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                   timezone={timezone}
                   location={location}
                   weather={weather}
-                  searchedTime={searchResult.time || null}
+                  searchedTime={searchResult.currentLocationTime || null}
                   searchedTimezone={searchResult.timezone}
                 />
               </motion.div>
+
+              <div className="w-px h-[80%] py-[10%] bg-gradient-to-b from-transparent from-0% via-black/10 to-transparent to-100%" />
 
               <motion.div
                 key="search-result"

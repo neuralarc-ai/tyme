@@ -16,9 +16,12 @@ interface LocationPermissionProps {
 export function LocationPermission({ onLocationGranted, onLocationDenied }: LocationPermissionProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const requestLocation = () => {
     setIsRequesting(true)
+    setError(null)
+
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -27,18 +30,31 @@ export function LocationPermission({ onLocationGranted, onLocationDenied }: Loca
         },
         (error) => {
           console.error("Error getting location:", error)
-          onLocationDenied()
-          setIsOpen(false)
+          setIsRequesting(false)
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setError("Location access was denied. Please allow location access to use this feature.")
+              break
+            case error.POSITION_UNAVAILABLE:
+              setError("Location information is unavailable. Please check your device's location services.")
+              break
+            case error.TIMEOUT:
+              setError("Location request timed out. Please try again.")
+              break
+            default:
+              setError("Unable to get your location. Please try again later.")
+          }
         },
         {
           enableHighAccuracy: true,
-          timeout: 5000,
+          timeout: 10000, // Increased timeout to 10 seconds
           maximumAge: 0,
         }
       )
     } else {
-      onLocationDenied()
-      setIsOpen(false)
+      setError("Geolocation is not supported by your browser.")
+      setIsRequesting(false)
     }
   }
 
@@ -57,6 +73,13 @@ export function LocationPermission({ onLocationGranted, onLocationDenied }: Loca
             This will help us determine your timezone correctly.
           </DialogDescription>
         </DialogHeader>
+        
+        {error && (
+          <div className="text-red-500 text-sm mb-4">
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={handleDeny} disabled={isRequesting}>
             Deny

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { formatInTimeZone } from "date-fns-tz"
 import { WiDaySunny, WiNightClear, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog } from "react-icons/wi"
+import { motion } from "framer-motion"
 
 interface SearchedLocationDisplayProps {
   timezone: string
@@ -67,40 +68,84 @@ export function SearchedLocationDisplay({
 
   return (
     <div className="grain w-full h-full bg-white">
-      <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.6,
+          ease: [0.16, 1, 0.3, 1],
+          delay: 0.2
+        }}
+        className="relative z-10 flex flex-col items-center justify-center h-full p-8"
+      >
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ 
+            duration: 0.5,
+            ease: [0.16, 1, 0.3, 1],
+            delay: 0.3
+          }}
+          className="text-center"
+        >
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.6,
+              ease: [0.16, 1, 0.3, 1],
+              delay: 0.5
+            }}
+            className="2xl:text-[220px] lg:text-8xl text-5xl font-black text-black mb-4"
+          >
+            {time}
+            <span className="text-3xl lg:text-5xl font-bold ml-2">{period}</span>
+          </motion.div>
+
+          <div className="flex justify-between items-center w-full max-w-2xl mx-auto">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ 
+                duration: 0.5,
+                ease: [0.16, 1, 0.3, 1],
+                delay: 0.6
+              }}
+              className="text-left"
+            >
+              <div className="text-xl lg:text-lg font-semibold text-black/50 mb-2">
+                {location}
+              </div>
+              <div className="text-lg lg:text-base text-black/50">
+                {displayDate}
+              </div>
+            </motion.div>
+
             {weather && (
-              <>
-                <span className="text-4xl font-light text-black">
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ 
+                  duration: 0.5,
+                  ease: [0.16, 1, 0.3, 1],
+                  delay: 0.7
+                }}
+                className="flex items-center gap-2"
+              >
+                <span className="text-4xl lg:text-3xl font-light text-black">
                   {getWeatherIcon(weather.weather[0].main, isNight)}
                 </span>
-                <span className="text-4xl font-light text-black">
+                <span className="text-4xl lg:text-3xl font-light text-black">
                   {Math.round(weather.main.temp)}°C
                 </span>
-                <span className="text-lg font-light text-black/50">
+                <span className="text-lg lg:text-base font-light text-black/50">
                   {weather.weather[0].description}
                 </span>
-              </>
+              </motion.div>
             )}
           </div>
-
-          <div className="text-[220px] font-black tracking-tight text-black mb-4">
-            {time}
-            <span className="text-2xl font-medium ml-2 opacity-70">{period}</span>
-          </div>
-
-          <div className="text-xl font-light text-black/50 mb-2">
-            {location}
-          </div>
-
-          <div className="h-px w-32 bg-black/20 my-4 mx-auto" />
-
-          <div className="text-lg font-light text-black/50">
-            {displayDate}
-          </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   )
 } 

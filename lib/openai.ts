@@ -26,14 +26,19 @@ export async function parseTimeQuery(query: string): Promise<TimeQueryResult> {
 
     const result = await response.json()
     
-    // Ensure all required properties are present
-    if (!result.hasTime || !result.location || !result.timezone) {
-      throw new Error('Invalid response format from API')
+    // Validate required properties
+    if (!result.location || !result.timezone) {
+      throw new Error('Invalid response format from API: Missing required location or timezone')
+    }
+
+    // For time-specific queries, validate time
+    if (result.hasTime && !result.time) {
+      throw new Error('Invalid response format from API: Time-specific query missing time value')
     }
 
     return {
-      hasTime: result.hasTime,
-      time: result.time,
+      hasTime: result.hasTime || false,
+      time: result.time || null,
       location: result.location,
       timezone: result.timezone,
       date: result.date || undefined,

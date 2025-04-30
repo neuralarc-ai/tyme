@@ -106,19 +106,18 @@
   overflow: hidden;
 }
 
-.grain::before {
+.grain::after {
   content: "";
-  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('/grain.svg');
+  background-image: url('/images/grain.svg');
   background-repeat: repeat;
   opacity: 1;
-  mix-blend-mode: soft-light;
+  mix-blend-mode: overlay;
   pointer-events: none;
-  z-index: 1;
+  z-index: 999;
 }
 
 .cal-sans-regular {

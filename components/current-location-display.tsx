@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
-import { getTimezoneAbbreviation } from "@/lib/timezone"
+import { useEffect, useState, useRef } from "react"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz'
+import { motion } from "framer-motion"
 
 interface CurrentLocationDisplayProps {
   timezone: string
@@ -89,25 +89,17 @@ const formatLocation = (location: string): string => {
     
     // If we have at least two parts
     if (parts.length >= 2) {
-      // Check if the first part is a number (postal code)
+      // Find the country (usually the last part)
+      const country = parts[parts.length - 1]
+      
+      // Find the city (usually the first part, but could be second if first is a postal code)
+      let city = parts[0]
       if (!isNaN(Number(parts[0]))) {
-        // If it's a postal code, take the next part as city and last part as country
-        const city = parts[1]
-        const country = parts[parts.length - 1]
-        return `${city}, ${country}`
+        // If first part is a number (postal code), use the second part as city
+        city = parts[1]
       }
       
-      // Check if the last part is a country name (common countries)
-      const commonCountries = ['India', 'Japan', 'USA', 'UK', 'China', 'Germany', 'France', 'Italy', 'Spain', 'Canada', 'Australia']
-      const lastPart = parts[parts.length - 1].toLowerCase()
-      
-      if (commonCountries.some(country => lastPart.includes(country.toLowerCase()))) {
-        // If last part is a country, format as "City, Country"
-        return `${parts[0]}, ${parts[parts.length - 1]}`
-      } else {
-        // If first part is a country, format as "Country, City"
-        return `${parts[parts.length - 1]}, ${parts[0]}`
-      }
+      return `${city}, ${country}`
     }
     
     // If we only have one part, return it as is
@@ -173,6 +165,7 @@ export function CurrentLocationDisplay({
 }: CurrentLocationDisplayProps) {
   const [time, setTime] = useState<string>("")
   const [date, setDate] = useState<string>("")
+  const isInitialMount = useRef(true)
 
   useEffect(() => {
     const updateTime = () => {
@@ -238,39 +231,88 @@ export function CurrentLocationDisplay({
 
   const timeInfo = getGradientForTime(time)
   const formattedLocation = formatLocation(location)
+  const [timePart, period] = time.split(" ")
 
   return (
-    <div className="grain w-full h-full bg-black">
-      <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
+    <div className="grain w-full h-full bg-white">
+      <motion.div 
+        initial={isInitialMount.current ? { opacity: 0, y: 20 } : false}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.6,
+          ease: [0.16, 1, 0.3, 1],
+          delay: isInitialMount.current ? 0.2 : 0
+        }}
+        onAnimationComplete={() => {
+          isInitialMount.current = false
+        }}
+        className="relative z-10 flex flex-col items-center justify-center h-full p-8"
+      >
+        <motion.div 
+          initial={isInitialMount.current ? { opacity: 0, y: 10 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ 
+            duration: 0.5,
+            ease: [0.16, 1, 0.3, 1],
+            delay: isInitialMount.current ? 0.3 : 0
+          }}
+          className="text-center"
+        >
+          <motion.div 
+            initial={isInitialMount.current ? { opacity: 0, y: 20 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.6,
+              ease: [0.16, 1, 0.3, 1],
+              delay: isInitialMount.current ? 0.5 : 0
+            }}
+            className="2xl:text-[220px] lg:text-8xl text-5xl font-black text-black mb-4"
+          >
+            {timePart}
+            <span className="text-3xl lg:text-5xl font-bold ml-2">{period}</span>
+          </motion.div>
+
+          <div className="flex justify-between items-center w-full max-w-2xl mx-auto">
+            <motion.div 
+              initial={isInitialMount.current ? { opacity: 0, x: -20 } : false}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ 
+                duration: 0.5,
+                ease: [0.16, 1, 0.3, 1],
+                delay: isInitialMount.current ? 0.6 : 0
+              }}
+              className="text-left"
+            >
+              <div className="text-xl lg:text-lg font-semibold text-black/50 mb-2">
+                {formattedLocation}
+              </div>
+              <div className="text-lg lg:text-base text-black/50">
+                {date}
+              </div>
+            </motion.div>
+
             {weather && (
-              <>
-                <span className="text-4xl font-light text-white">
+              <motion.div 
+                initial={isInitialMount.current ? { opacity: 0, x: 20 } : false}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ 
+                  duration: 0.5,
+                  ease: [0.16, 1, 0.3, 1],
+                  delay: isInitialMount.current ? 0.7 : 0
+                }}
+                className="flex items-center gap-2"
+              >
+                <span className="text-4xl lg:text-3xl font-light text-black">
                   {getWeatherIcon(weather.weather[0].main, false)}
                 </span>
-                <span className="text-4xl font-light text-white">
+                <span className="text-4xl lg:text-3xl font-light text-black">
                   {Math.round(weather.main.temp)}°C
                 </span>
-              </>
+              </motion.div>
             )}
           </div>
-
-          <div className="text-[220px] font-black tracking-tight text-white mb-4">
-            {time}
-          </div>
-
-          <div className="text-xl font-light text-white/50 mb-2">
-            {formattedLocation}
-          </div>
-
-          <div className="h-px w-32 bg-white/20 my-4 mx-auto" />
-
-          <div className="text-lg font-light text-white/50">
-            {date}
-          </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   )
 } 
