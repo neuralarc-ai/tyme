@@ -213,7 +213,7 @@ export function SearchedLocationDisplay({
             className="2xl:text-[220px] lg:text-8xl text-5xl font-black text-black mb-4"
           >
             {time.split(' ')[0]}
-            <span className="text-2xl lg:text-4xl font-bold ml-2">{time.split(' ')[1]}</span>
+            <span className="text-2xl lg:text-5xl font-bold ml-2">{time.split(' ')[1]}</span>
           </motion.div>
 
           <div className="flex justify-between items-center w-full max-w-2xl mx-auto">

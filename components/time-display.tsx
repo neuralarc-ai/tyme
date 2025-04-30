@@ -5,7 +5,6 @@ import { getGoogleTimezone } from "@/lib/google-timezone"
 import { LocationPermission } from "./location-permission"
 import { parseTimeQuery } from "@/lib/openai"
 import { motion, AnimatePresence } from "framer-motion"
-import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { CurrentLocationDisplay } from "./current-location-display"
 import { SearchedLocationDisplay } from "./searched-location-display"
 import { useToast } from "@/components/ui/use-toast"
@@ -39,31 +38,6 @@ interface SearchResult {
   weather?: WeatherData
   secondWeather?: WeatherData
   error?: string
-}
-
-const getWeatherIcon = (weatherData: WeatherData | undefined) => {
-  if (!weatherData) return '☀️'
-  const main = weatherData.weather[0].main.toLowerCase()
-  const hour = new Date().getHours()
-  const isNightTime = hour < 6 || hour > 18
-
-  switch (main) {
-    case 'clear':
-      return isNightTime ? <WiNightClear size={48} /> : <WiDaySunny size={48} />
-    case 'clouds':
-      return isNightTime ? <WiNightCloudy size={48} /> : <WiDayCloudy size={48} />
-    case 'rain':
-      return <WiRain size={48} />
-    case 'snow':
-      return <WiSnow size={48} />
-    case 'thunderstorm':
-      return <WiThunderstorm size={48} />
-    case 'fog':
-    case 'mist':
-      return <WiFog size={48} />
-    default:
-      return isNightTime ? <WiNightCloudy size={48} /> : <WiDayCloudy size={48} />
-  }
 }
 
 const formatTime = (time: string | null, is24HourFormat: boolean) => {
@@ -128,43 +102,6 @@ const formatLocation = (location: string) => {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' '))
     .join(', ')
-}
-
-const getGradientForTime = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number)
-  const timeValue = hours + minutes / 60
-
-  if (timeValue >= 4 && timeValue < 7) {
-    // Sunrise: Orange to Pink
-    return {
-      gradient: "radial-gradient(circle at center, #f97316, #ec4899, #f472b6)",
-      textColor: "text-white"
-    }
-  } else if (timeValue >= 7 && timeValue < 12) {
-    // Morning: Light Blue
-    return {
-      gradient: "radial-gradient(circle at center, #38bdf8, #60a5fa, #93c5fd)",
-      textColor: "text-black"
-    }
-  } else if (timeValue >= 12 && timeValue < 16) {
-    // Afternoon: Sky Blue + Off White
-    return {
-      gradient: "radial-gradient(circle at center, #e0f2fe, #bae6fd, #f8fafc)",
-      textColor: "text-black"
-    }
-  } else if (timeValue >= 16 && timeValue < 19) {
-    // Evening: Orange + Pink
-    return {
-      gradient: "radial-gradient(circle at center, #fb923c, #f472b6, #ec4899)",
-      textColor: "text-white"
-    }
-  } else {
-    // Night: Dark Blue
-    return {
-      gradient: "radial-gradient(circle at center, #1e3a8a, #1e40af, #1d4ed8)",
-      textColor: "text-white"
-    }
-  }
 }
 
 const calculateLocalTime = (targetTime: string, targetTimezone: string, currentTimezone: string) => {
@@ -510,15 +447,21 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                       weather: searchResult.secondWeather,
                       searchedTime: searchResult.secondLocationTime || searchResult.time || ""
                     }}
+                    currentLocation={{
+                      timezone: timezone,
+                      location: location,
+                      weather: weather
+                    }}
+                    query={searchQuery}
                   />
                 ) : (
-                <SearchedLocationDisplay
-                  timezone={searchResult.timezone}
-                  location={searchResult.location}
-                  weather={searchResult.weather}
-                  searchedTime={searchResult.time || ""}
-                  date={searchResult.date || null}
-                />
+                  <SearchedLocationDisplay
+                    timezone={searchResult.timezone}
+                    location={searchResult.location}
+                    weather={searchResult.weather}
+                    searchedTime={searchResult.time || ""}
+                    date={searchResult.date || null}
+                  />
                 )}
               </motion.div>
             </>

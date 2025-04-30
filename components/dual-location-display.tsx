@@ -1,8 +1,9 @@
 import { motion } from "framer-motion"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import OpenAI from "openai"
+import { MeetingTimeDisplay } from "./meeting-time-display"
 
 interface LocationData {
   timezone: string
@@ -24,6 +25,7 @@ interface DualLocationDisplayProps {
   firstLocation: LocationData
   secondLocation: LocationData
   currentLocation?: LocationData
+  query?: string
 }
 
 const getWeatherIcon = (weatherData: LocationData["weather"]) => {
@@ -176,45 +178,14 @@ Respond with ONLY a JSON object in this format:
     return JSON.parse(response)
   } catch (error) {
     console.error("Error calculating best meeting time:", error)
-    // Fallback to simple calculation
-    const now = new Date()
-    const time = now.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: locations[0].timezone
-    })
-    return {
-      time,
-      timezone: locations[0].timezone,
-      explanation: "Using current time as fallback"
-    }
+    return null
   }
 }
 
-export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation }: DualLocationDisplayProps) {
+export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query }: DualLocationDisplayProps) {
   const is24HourFormat = false
   const firstTime = formatTime(firstLocation.searchedTime || null, is24HourFormat)
   const secondTime = formatTime(secondLocation.searchedTime || null, is24HourFormat)
-  const [showMeetingTime, setShowMeetingTime] = useState(false)
-  const [bestMeetingTime, setBestMeetingTime] = useState<{ time: string; timezone: string; explanation: string } | null>(null)
-  const [isCalculating, setIsCalculating] = useState(false)
-
-  const handleShowMeetingTime = async () => {
-    if (currentLocation) {
-      setIsCalculating(true)
-      try {
-        const locations = [currentLocation, firstLocation, secondLocation]
-        const bestTime = await calculateBestMeetingTime(locations)
-        setBestMeetingTime(bestTime)
-        setShowMeetingTime(true)
-      } catch (error) {
-        console.error("Error getting meeting time:", error)
-      } finally {
-        setIsCalculating(false)
-      }
-    }
-  }
 
   const renderLocationSection = (location: LocationData, time: string, isFirst: boolean) => {
     const [timePart, period] = time.split(" ")
@@ -272,44 +243,29 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
   }
 
   return (
-    <div className="flex flex-col h-full w-full relative">
-      {/* First Location (Top Half) */}
-      {renderLocationSection(firstLocation, firstTime, true)}
+    <div className="flex flex-row h-full w-full relative">
+      {/* Main Content Area */}
+      <div className="flex flex-col h-full w-full">
+        {/* First Location (Top Half) */}
+        {renderLocationSection(firstLocation, firstTime, true)}
 
-      {/* Divider */}
-      <div className="w-full h-px bg-black/10" />
+        {/* Divider */}
+        <div className="w-full h-px bg-black/10" />
 
-      {/* Second Location (Bottom Half) */}
-      {renderLocationSection(secondLocation, secondTime, false)}
+        {/* Second Location (Bottom Half) */}
+        {renderLocationSection(secondLocation, secondTime, false)}
+      </div>
 
-      {/* Meeting Time Button */}
+      {/* Meeting Time Display */}
       {currentLocation && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50">
-          <Button
-            variant="outline"
-            className="bg-white hover:bg-gray-50 border border-black/10 shadow-sm relative min-w-[200px]"
-            onClick={handleShowMeetingTime}
-            disabled={isCalculating}
-          >
-            {isCalculating ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-black/20 border-t-black/60 rounded-full animate-spin" />
-                <span>Calculating...</span>
-              </div>
-            ) : showMeetingTime && bestMeetingTime ? (
-              <div className="flex flex-col items-start gap-1">
-                <div className="flex items-center gap-2">
-                  <span>Best Meeting Time:</span>
-                  <span className="font-semibold">{bestMeetingTime.time}</span>
-                  <span className="text-black/50">({bestMeetingTime.timezone})</span>
-                </div>
-                <div className="text-xs text-black/50">{bestMeetingTime.explanation}</div>
-              </div>
-            ) : (
-              "Find Best Meeting Time"
-            )}
-          </Button>
-        </div>
+        <MeetingTimeDisplay
+          locations={[
+            { timezone: currentLocation.timezone, location: currentLocation.location },
+            { timezone: firstLocation.timezone, location: firstLocation.location },
+            { timezone: secondLocation.timezone, location: secondLocation.location }
+          ]}
+          query={query}
+        />
       )}
     </div>
   )
