@@ -9,26 +9,45 @@ import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightCle
 import { CurrentLocationDisplay } from "./current-location-display"
 import { SearchedLocationDisplay } from "./searched-location-display"
 import { useToast } from "@/components/ui/use-toast"
+import { DualLocationDisplay } from "./dual-location-display"
+
+interface WeatherData {
+  main: {
+    temp: number
+  }
+  weather: {
+    main: string
+    description: string
+    icon: string
+  }[]
+}
 
 interface TimeDisplayProps {
   searchQuery?: string
 }
 
 interface SearchResult {
-  hasTime: boolean
-  time: string | null
   location: string
   timezone: string
-  weather?: any
+  hasTime: boolean
+  time?: string | null
   date?: string | null
   currentLocationTime?: string | null
+  secondLocation: string | null
+  secondTimezone: string | null
+  secondLocationTime?: string | null
+  weather?: WeatherData
+  secondWeather?: WeatherData
+  error?: string
 }
 
-const getWeatherIcon = (weatherCode: string, isNight: boolean) => {
+const getWeatherIcon = (weatherData: WeatherData | undefined) => {
+  if (!weatherData) return '☀️'
+  const main = weatherData.weather[0].main.toLowerCase()
   const hour = new Date().getHours()
   const isNightTime = hour < 6 || hour > 18
 
-  switch (weatherCode.toLowerCase()) {
+  switch (main) {
     case 'clear':
       return isNightTime ? <WiNightClear size={48} /> : <WiDaySunny size={48} />
     case 'clouds':
@@ -248,7 +267,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
           }
 
           if (result.hasTime) {
-            // For queries with specific time, calculate the converted time
+            // Parse the input time
             const [timePart, period] = result.time!.split(' ')
             let [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
             
@@ -265,7 +284,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
             const targetOffset = targetDate.getTimezoneOffset() / 60
             const currentOffset = currentDate.getTimezoneOffset() / 60
 
-            // Calculate the time difference (inverse the sign because getTimezoneOffset returns negative for positive offsets)
+            // Calculate the time difference
             const timeDiff = currentOffset - targetOffset
 
             // Calculate the local time
@@ -278,11 +297,28 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
             const displayPeriod = localHours >= 12 ? 'PM' : 'AM'
             const currentLocationTime = `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${displayPeriod}`
 
+            // If there's a second location, calculate its time as well
+            let secondLocationTime = null
+            if (result.secondLocation && result.secondTimezone) {
+              const secondDate = new Date(now.toLocaleString('en-US', { timeZone: result.secondTimezone }))
+              const secondOffset = secondDate.getTimezoneOffset() / 60
+              const secondTimeDiff = currentOffset - secondOffset
+              
+              let secondHours = hours + secondTimeDiff
+              if (secondHours < 0) secondHours += 24
+              if (secondHours >= 24) secondHours -= 24
+              
+              const secondDisplayHours = secondHours % 12 || 12
+              const secondDisplayPeriod = secondHours >= 12 ? 'PM' : 'AM'
+              secondLocationTime = `${String(secondDisplayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${secondDisplayPeriod}`
+            }
+
             setSearchResult({
               ...result,
-              time: result.time,
+              time: result.time || null,
               date: result.date || null,
-              currentLocationTime
+              currentLocationTime: currentLocationTime || null,
+              secondLocationTime: secondLocationTime || null
             })
           } else {
             // For location-only queries, get current time in that location
@@ -294,6 +330,17 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
               timeZone: result.timezone
             })
             
+            // If there's a second location, get its current time as well
+            let secondLocationTime = null
+            if (result.secondLocation && result.secondTimezone) {
+              secondLocationTime = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: result.secondTimezone
+              })
+            }
+            
             setSearchResult({
               ...result,
               time: currentTime,
@@ -304,7 +351,8 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                 day: 'numeric',
                 timeZone: result.timezone
               }),
-              currentLocationTime: null
+              currentLocationTime: null,
+              secondLocationTime: secondLocationTime
             })
           }
 
@@ -316,6 +364,17 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
             if (weatherResponse.ok) {
               const weatherData = await weatherResponse.json()
               setSearchResult(prev => prev ? { ...prev, weather: weatherData } : null)
+            }
+          }
+
+          // Get weather for the second location if it exists
+          if (result.secondLocation) {
+            const secondWeatherResponse = await fetch(
+              `https://api.openweathermap.org/data/2.5/weather?q=${result.secondLocation}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
+            )
+            if (secondWeatherResponse.ok) {
+              const secondWeatherData = await secondWeatherResponse.json()
+              setSearchResult(prev => prev ? { ...prev, secondWeather: secondWeatherData } : null)
             }
           }
         } catch (error) {
@@ -404,6 +463,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                 weather={weather}
                 searchedTime={null}
                 searchedTimezone={null}
+                date={null}
               />
             </motion.div>
           ) : (
@@ -422,6 +482,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                   weather={weather}
                   searchedTime={searchResult.currentLocationTime || null}
                   searchedTimezone={searchResult.timezone}
+                  date={searchResult.date || null}
                 />
               </motion.div>
 
@@ -435,12 +496,30 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                 transition={{ duration: 0.5 }}
                 className="relative"
               >
+                {searchResult.secondLocation ? (
+                  <DualLocationDisplay
+                    firstLocation={{
+                      timezone: searchResult.timezone,
+                      location: searchResult.location,
+                      weather: searchResult.weather,
+                      searchedTime: searchResult.time || ""
+                    }}
+                    secondLocation={{
+                      timezone: searchResult.secondTimezone || "",
+                      location: searchResult.secondLocation,
+                      weather: searchResult.secondWeather,
+                      searchedTime: searchResult.secondLocationTime || searchResult.time || ""
+                    }}
+                  />
+                ) : (
                 <SearchedLocationDisplay
                   timezone={searchResult.timezone}
                   location={searchResult.location}
                   weather={searchResult.weather}
                   searchedTime={searchResult.time || ""}
+                  date={searchResult.date || null}
                 />
+                )}
               </motion.div>
             </>
           )}

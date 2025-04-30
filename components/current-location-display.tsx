@@ -9,6 +9,7 @@ interface CurrentLocationDisplayProps {
   weather: any
   searchedTime: string | null
   searchedTimezone: string | null
+  date: string | null
 }
 
 const getWeatherIcon = (weatherCode: string, isNight: boolean) => {
@@ -156,15 +157,92 @@ const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimez
   }
 }
 
+const formatDate = (dateString: string | null, timezone: string) => {
+  if (!timezone || !isValidTimezone(timezone)) {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  if (!dateString) {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: timezone
+    })
+  }
+
+  const now = new Date()
+  const today = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+  
+  switch (dateString.toLowerCase()) {
+    case 'today':
+      return today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    case 'tomorrow':
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      return tomorrow.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    case 'day after tomorrow':
+      const dayAfterTomorrow = new Date(today)
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+      return dayAfterTomorrow.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    default:
+      // Handle specific dates like "28 May"
+      const [day, month] = dateString.split(' ')
+      const year = today.getFullYear()
+      const specificDate = new Date(`${month} ${day}, ${year}`)
+      if (!isNaN(specificDate.getTime())) {
+        return specificDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: timezone
+        })
+      }
+      return today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+  }
+}
+
 export function CurrentLocationDisplay({
   timezone,
   location,
   weather,
   searchedTime,
-  searchedTimezone
+  searchedTimezone,
+  date
 }: CurrentLocationDisplayProps) {
   const [time, setTime] = useState<string>("")
-  const [date, setDate] = useState<string>("")
+  const [displayDate, setDisplayDate] = useState<string>("")
   const isInitialMount = useRef(true)
 
   useEffect(() => {
@@ -192,22 +270,7 @@ export function CurrentLocationDisplay({
         }
 
         // Update date
-        if (timezone) {
-          setDate(now.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: timezone
-          }))
-        } else {
-          setDate(now.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }))
-        }
+        setDisplayDate(formatDate(date, timezone))
       } catch (error) {
         console.error('Error updating time:', error)
         setTime(now.toLocaleTimeString('en-US', {
@@ -215,19 +278,14 @@ export function CurrentLocationDisplay({
           minute: '2-digit',
           hour12: true
         }))
-        setDate(now.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }))
+        setDisplayDate(formatDate(null, timezone))
       }
     }
 
     const interval = setInterval(updateTime, 1000)
     updateTime()
     return () => clearInterval(interval)
-  }, [timezone, searchedTime, searchedTimezone])
+  }, [timezone, searchedTime, searchedTimezone, date])
 
   const timeInfo = getGradientForTime(time)
   const formattedLocation = formatLocation(location)
@@ -287,7 +345,7 @@ export function CurrentLocationDisplay({
                 {formattedLocation}
               </div>
               <div className="text-lg lg:text-base text-black/50">
-                {date}
+                {displayDate}
               </div>
             </motion.div>
 

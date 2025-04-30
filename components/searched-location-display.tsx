@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { formatInTimeZone } from "date-fns-tz"
 import { WiDaySunny, WiNightClear, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog } from "react-icons/wi"
 import { motion } from "framer-motion"
@@ -16,6 +16,7 @@ interface SearchedLocationDisplayProps {
     }>
   }
   searchedTime: string
+  date: string | null
 }
 
 function getWeatherIcon(code: string, isNight: boolean) {
@@ -38,33 +39,146 @@ function getWeatherIcon(code: string, isNight: boolean) {
   }
 }
 
+const isValidTimezone = (timezone: string): boolean => {
+  try {
+    new Date().toLocaleString('en-US', { timeZone: timezone })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+const formatDate = (dateString: string | null, timezone: string) => {
+  if (!timezone || !isValidTimezone(timezone)) {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  if (!dateString) {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: timezone
+    })
+  }
+
+  const now = new Date()
+  const today = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+  
+  switch (dateString.toLowerCase()) {
+    case 'today':
+      return today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    case 'tomorrow':
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      return tomorrow.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    case 'day after tomorrow':
+      const dayAfterTomorrow = new Date(today)
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+      return dayAfterTomorrow.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+    default:
+      // Handle specific dates like "28 May"
+      const [day, month] = dateString.split(' ')
+      const year = today.getFullYear()
+      const specificDate = new Date(`${month} ${day}, ${year}`)
+      if (!isNaN(specificDate.getTime())) {
+        return specificDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: timezone
+        })
+      }
+      return today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: timezone
+      })
+  }
+}
+
 export function SearchedLocationDisplay({
   timezone,
   location,
   weather,
-  searchedTime
+  searchedTime,
+  date
 }: SearchedLocationDisplayProps) {
-  const [displayDate, setDisplayDate] = useState("")
+  const [time, setTime] = useState<string>("")
+  const [displayDate, setDisplayDate] = useState<string>("")
+  const isInitialMount = useRef(true)
 
   useEffect(() => {
-    const updateDate = () => {
+    const updateTime = () => {
+      const now = new Date()
+      
       try {
-        const now = new Date()
-        const date = formatInTimeZone(now, timezone, "EEEE, MMMM d, yyyy")
-        setDisplayDate(date)
+        if (searchedTime && timezone) {
+          // Format time to ensure two-digit hours
+          const [timePart, period] = searchedTime.split(' ')
+          const [hours, minutes] = timePart.split(':')
+          setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
+        } else if (timezone) {
+          setTime(now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: timezone
+          }))
+        } else {
+          setTime(now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          }))
+        }
+
+        // Update date
+        setDisplayDate(formatDate(date, timezone))
       } catch (error) {
-        console.error("Error updating date:", error)
-        setDisplayDate("Error")
+        console.error('Error updating time:', error)
+        setTime(now.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }))
+        setDisplayDate(formatDate(null, timezone))
       }
     }
 
-    updateDate()
-    const interval = setInterval(updateDate, 1000)
+    const interval = setInterval(updateTime, 1000)
+    updateTime()
     return () => clearInterval(interval)
-  }, [timezone])
+  }, [timezone, searchedTime, date])
 
-  const [time, period] = searchedTime.split(" ")
-  const isNight = period?.toUpperCase() === "PM" && parseInt(time.split(":")[0]) >= 6
+  const isNight = time.toUpperCase().includes("PM") && parseInt(time.split(":")[0]) >= 6
 
   return (
     <div className="grain w-full h-full bg-white">
@@ -98,8 +212,8 @@ export function SearchedLocationDisplay({
             }}
             className="2xl:text-[220px] lg:text-8xl text-5xl font-black text-black mb-4"
           >
-            {time}
-            <span className="text-3xl lg:text-5xl font-bold ml-2">{period}</span>
+            {time.split(' ')[0]}
+            <span className="text-2xl lg:text-4xl font-bold ml-2">{time.split(' ')[1]}</span>
           </motion.div>
 
           <div className="flex justify-between items-center w-full max-w-2xl mx-auto">

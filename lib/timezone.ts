@@ -14,7 +14,7 @@ interface FullLocationInfo {
 }
 
 export async function getFullLocationInfo(latitude: number, longitude: number): Promise<FullLocationInfo> {
-  const timestamp = Math.floor(Date.now() / 1000)
+    const timestamp = Math.floor(Date.now() / 1000)
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
   if (!apiKey) {
@@ -24,34 +24,34 @@ export async function getFullLocationInfo(latitude: number, longitude: number): 
   // Fetch timezone
   const timezoneResponse = await fetch(
     `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${apiKey}`
-  )
+    )
 
   if (!timezoneResponse.ok) {
     throw new Error('Failed to fetch timezone data')
-  }
+    }
 
   const timezoneData = await timezoneResponse.json()
-
+    
   if (timezoneData.status !== 'OK') {
     throw new Error(`Timezone API error: ${timezoneData.status}`)
-  }
+    }
 
   // Fetch location (reverse geocoding)
   const locationResponse = await fetch(
     `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
-  )
+    )
 
   if (!locationResponse.ok) {
     throw new Error('Failed to fetch location data')
-  }
+    }
 
   const locationData = await locationResponse.json()
-
+    
   if (locationData.status !== 'OK') {
     throw new Error(`Geocoding API error: ${locationData.status}`)
   }
 
-  return {
+    return {
     timeZoneId: timezoneData.timeZoneId,
     timeZoneName: timezoneData.timeZoneName,
     address: locationData.results[0]?.formatted_address || 'Unknown location'
@@ -77,7 +77,7 @@ export function convertTimeBetweenTimezones(time: string, fromTimezone: string, 
   try {
     const [timePart, period] = time.split(' ')
     let [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
-
+    
     // Convert to 24-hour format
     if (period?.toLowerCase() === 'pm' && hours < 12) hours += 12
     if (period?.toLowerCase() === 'am' && hours === 12) hours = 0

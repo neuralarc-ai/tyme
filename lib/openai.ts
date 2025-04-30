@@ -1,10 +1,13 @@
-interface TimeQueryResult {
-  hasTime: boolean
-  time: string | null
+export interface TimeQueryResult {
   location: string
   timezone: string
-  date?: string
-  currentLocationTime?: string
+  hasTime: boolean
+  time?: string | null
+  date?: string | null
+  currentLocationTime?: string | null
+  secondLocation: string | null
+  secondTimezone: string | null
+  secondLocationTime?: string | null
   error?: string
 }
 
@@ -19,41 +22,38 @@ export async function parseTimeQuery(query: string): Promise<TimeQueryResult> {
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('API Error Response:', errorText)
-      throw new Error(`Failed to parse time query: ${response.status} ${response.statusText}`)
+      throw new Error('Failed to parse time query')
     }
 
-    const result = await response.json()
+    const data = await response.json()
     
     // Validate required properties
-    if (!result.location || !result.timezone) {
-      throw new Error('Invalid response format from API: Missing required location or timezone')
+    if (!data.location || !data.timezone) {
+      throw new Error('Invalid response format from API: Missing required properties')
     }
 
-    // For time-specific queries, validate time
-    if (result.hasTime && !result.time) {
-      throw new Error('Invalid response format from API: Time-specific query missing time value')
-    }
-
+    // Return the validated data with fallback values
     return {
-      hasTime: result.hasTime || false,
-      time: result.time || null,
-      location: result.location,
-      timezone: result.timezone,
-      date: result.date || undefined,
-      currentLocationTime: result.currentLocationTime || undefined,
-      error: result.error
+      hasTime: data.hasTime ?? false,
+      time: data.time ?? null,
+      date: data.date ?? null,
+      location: data.location,
+      timezone: data.timezone,
+      secondLocation: data.secondLocation || null,
+      secondTimezone: data.secondTimezone || null,
+      secondLocationTime: data.secondLocationTime || null,
     }
   } catch (error) {
-    console.error("Error in parseTimeQuery:", error)
+    console.error('Error parsing time query:', error)
     return {
       hasTime: false,
       time: null,
-      location: "",
-      timezone: "",
-      date: undefined,
-      currentLocationTime: undefined,
+      date: null,
+      location: '',
+      timezone: '',
+      secondLocation: null,
+      secondTimezone: null,
+      secondLocationTime: null,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
     }
   }

@@ -104,8 +104,16 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
   }
 
   const isValidQuery = (text: string): boolean => {
-    const keywords = ['time', 'location', 'date', 'in', 'at']
-    return keywords.some(keyword => text.toLowerCase().includes(keyword))
+    const keywords = ['time', 'location', 'date', 'in', 'at', 'and', ',']
+    const hasLocationKeywords = keywords.some(keyword => text.toLowerCase().includes(keyword))
+    
+    // Check for time format (e.g., 2am, 3pm, 10:30, 2:30pm)
+    const hasTimeFormat = /(\d{1,2}(:\d{2})?\s*(am|pm|AM|PM)?)/.test(text)
+    
+    // Check for location indicators
+    const hasLocationIndicators = /(in|at|,|and)/.test(text.toLowerCase())
+    
+    return hasLocationKeywords || (hasTimeFormat && hasLocationIndicators)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,7 +125,7 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
         setIsProcessing(true)
         try {
           await onSubmit(trimmedQuery)
-          setQuery("")
+      setQuery("")
         } finally {
           setIsProcessing(false)
         }
@@ -125,7 +133,7 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
         toast({
           variant: "destructive",
           title: "Invalid Query",
-          description: "Please ask about time in a specific location. For example: 'What time is it in Tokyo?' or 'Time in New York'",
+          description: "Please ask about time in one or two locations. For example: 'What time is it in Tokyo?' or '2am in Tokyo, Singapore'",
           duration: 3000,
         })
       }
@@ -157,12 +165,12 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
           className="w-full max-w-2xl"
         >
           <div className="relative">
-            <div className="relative">
-              <Input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask about any time in any place..."
+          <div className="relative">
+            <Input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ask about time in one or two locations..."
                 className={`w-full h-16 px-6 text-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder:text-white/50 focus:border-0 focus:ring-0 focus:outline-none transition-all duration-300 ${
                   isProcessing ? 'pr-24' : ''
                 }`}
@@ -204,7 +212,7 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
               {isProcessing ? (
                 <Loader2 className="w-5 h-5 text-black animate-spin" />
               ) : (
-                <ArrowUp className="w-5 h-5 text-black" />
+              <ArrowUp className="w-5 h-5 text-black" />
               )}
             </button>
           </div>
@@ -225,8 +233,10 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
             {[
               "What time is it in Tokyo?",
               "Time in New York",
-              "Current time in London",
-              "Time in Sydney right now"
+              "2am in Tokyo, Singapore",
+              "3pm in London, Paris",
+              "10pm Dubai and New York",
+              "Current time in Sydney, Melbourne"
             ].map((example, index) => (
               <motion.button
                 key={example}
@@ -242,7 +252,7 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
                   onSubmit(example)
                 }}
                 disabled={isProcessing}
-                className={`px-4 py-2 text-sm rounded-full bg-white/5 hover:bg-white/10 transition-colors ${
+                className={`px-4 py-2 text-sm rounded-full bg-white/10 hover:bg-white/20 transition-colors ${
                   isProcessing ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >

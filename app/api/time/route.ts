@@ -23,37 +23,52 @@ export async function POST(request: Request) {
 
 {
   "hasTime": boolean, // true if a specific time was mentioned
-  "time": string | null, // the time mentioned in 12-hour format (e.g., "3:00 PM")
-  "location": string, // the location mentioned
-  "timezone": string, // IANA timezone identifier (e.g., "Asia/Tokyo")
-  "date": string | null, // the date if mentioned, otherwise null
-  "currentLocationTime": string | null // the current time in the location if no specific time was mentioned
+  "time": string | null, // the time mentioned in 12-hour format (e.g., "3:00 PM" or "2pm")
+  "location": string, // the first location mentioned
+  "timezone": string, // IANA timezone identifier for the first location (e.g., "Asia/Tokyo")
+  "date": string | null, // the date if mentioned (e.g., "tomorrow", "28 May", "day after tomorrow", "today")
+  "currentLocationTime": string | null, // the current time in the location if no specific time was mentioned
+  "secondLocation": string | null, // the second location if mentioned
+  "secondTimezone": string | null, // IANA timezone identifier for the second location
+  "secondLocationTime": string | null // the current time in the second location
 }
 
 Rules:
 1. Always use IANA timezone identifiers
 2. Format times in 12-hour format with AM/PM
 3. If no specific time is mentioned, set hasTime to false and time to null
-4. Respond with ONLY the JSON object, no additional text
+4. If two locations are mentioned, include both in the response
+5. Handle time formats like "2pm", "4am", "3:00 PM", etc.
+6. Handle date formats like:
+   - Relative dates: "tomorrow", "today", "day after tomorrow"
+   - Specific dates: "28 May", "May 28", "28th May"
+   - Day names: "next Monday", "this Friday"
+7. Respond with ONLY the JSON object, no additional text
 
-Example for "3 PM in Tokyo":
+Example for "2pm tomorrow in Dubai":
 {
   "hasTime": true,
-  "time": "3:00 PM",
-  "location": "Tokyo, Japan",
-  "timezone": "Asia/Tokyo",
-  "date": null,
-  "currentLocationTime": null
+  "time": "2:00 PM",
+  "location": "Dubai, UAE",
+  "timezone": "Asia/Dubai",
+  "date": "tomorrow",
+  "currentLocationTime": null,
+  "secondLocation": null,
+  "secondTimezone": null,
+  "secondLocationTime": null
 }
 
-Example for "current time in London":
+Example for "4am on 28 May in Tokyo, Singapore":
 {
-  "hasTime": false,
-  "time": null,
-  "location": "London, UK",
-  "timezone": "Europe/London",
-  "date": null,
-  "currentLocationTime": "2:30 PM"
+  "hasTime": true,
+  "time": "4:00 AM",
+  "location": "Tokyo, Japan",
+  "timezone": "Asia/Tokyo",
+  "date": "28 May",
+  "currentLocationTime": null,
+  "secondLocation": "Singapore",
+  "secondTimezone": "Asia/Singapore",
+  "secondLocationTime": "3:00 AM"
 }`
 
     const completion = await openai.chat.completions.create({
@@ -88,7 +103,10 @@ Example for "current time in London":
       location: "",
       timezone: "",
       date: null,
-      currentLocationTime: null
+      currentLocationTime: null,
+      secondLocation: null,
+      secondTimezone: null,
+      secondLocationTime: null
     }, { status: 500 })
   }
 } 
