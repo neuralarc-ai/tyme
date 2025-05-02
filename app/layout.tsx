@@ -5,9 +5,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 
 export const metadata: Metadata = {
-  title: "Dynamic Time & Weather Dashboard",
-  description: "A sleek, modern dashboard displaying time and weather information",
-  generator: 'v0.dev'
+  title: "Tyme - Find the best time for your meetings",
+  description: "A sleek, modern dashboard displaying time for different locations and suggesting the best time for your meetings",
+  authors: [{ name: "NeuralArc", url: "https://neuralarc.ai" }],
 }
 
 export default function RootLayout({
