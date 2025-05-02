@@ -293,27 +293,23 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
             })
           }
 
-          // Get weather for the searched location
+          // Get weather for the searched location and second location in parallel
+          const weatherPromises = []
           if (result.location) {
-            const weatherResponse = await fetch(
-              `https://api.openweathermap.org/data/2.5/weather?q=${result.location}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
+            weatherPromises.push(
+              fetch(`https://api.openweathermap.org/data/2.5/weather?q=${result.location}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(weatherData => weatherData && setSearchResult(prev => prev ? { ...prev, weather: weatherData } : null))
             )
-            if (weatherResponse.ok) {
-              const weatherData = await weatherResponse.json()
-              setSearchResult(prev => prev ? { ...prev, weather: weatherData } : null)
-            }
           }
-
-          // Get weather for the second location if it exists
           if (result.secondLocation) {
-            const secondWeatherResponse = await fetch(
-              `https://api.openweathermap.org/data/2.5/weather?q=${result.secondLocation}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
+            weatherPromises.push(
+              fetch(`https://api.openweathermap.org/data/2.5/weather?q=${result.secondLocation}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(secondWeatherData => secondWeatherData && setSearchResult(prev => prev ? { ...prev, secondWeather: secondWeatherData } : null))
             )
-            if (secondWeatherResponse.ok) {
-              const secondWeatherData = await secondWeatherResponse.json()
-              setSearchResult(prev => prev ? { ...prev, secondWeather: secondWeatherData } : null)
-            }
           }
+          await Promise.all(weatherPromises)
         } catch (error) {
           console.error("Error processing search:", error)
           toast({
@@ -377,6 +373,13 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
 
   return (
     <div className="relative w-full h-full overflow-hidden grain bg-white">
+      {/* Loading Spinner Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-12 h-12 border-4 border-white border-t-black rounded-full animate-spin" />
+          <span className="ml-4 text-white text-lg font-semibold">Loading...</span>
+        </div>
+      )}
       {showPermission && (
         <LocationPermission 
           onLocationGranted={handleLocationGranted} 

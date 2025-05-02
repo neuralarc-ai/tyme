@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { geminiChatCompletion } from '@/lib/gemini'
 
 // Check if API key is available
 if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
@@ -106,28 +107,61 @@ Example for "4am on 28 May in Tokyo, Singapore":
   "secondLocationTime": "3:00 AM"
 }`
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a timezone expert. Extract location and time information from queries. Always respond with valid JSON."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 500
-    })
-
-    const response = completion.choices[0].message.content
-    if (!response) {
-      throw new Error("No response from OpenAI")
+    let response: string | undefined = undefined
+    let result: any = undefined
+    let usedGemini = false
+    try {
+      const openai = new OpenAI({
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+      })
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a timezone expert. Extract location and time information from queries. Always respond with valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 500
+      })
+      response = completion.choices[0].message.content ?? undefined
+    } catch (openaiError) {
+      // Fallback to Gemini if OpenAI fails
+      try {
+        const geminiRes = await geminiChatCompletion({
+          prompt,
+          systemPrompt: "You are a timezone expert. Extract location and time information from queries. Always respond with valid JSON.",
+          maxTokens: 500,
+          temperature: 0.1,
+        })
+        response = geminiRes.content
+        usedGemini = true
+      } catch (geminiError) {
+        console.error("Both OpenAI and Gemini failed:", openaiError, geminiError)
+        throw new Error("Both OpenAI and Gemini failed: " + (geminiError instanceof Error ? geminiError.message : String(geminiError)))
+      }
     }
 
-    const result = JSON.parse(response)
+    if (!response) {
+      throw new Error(usedGemini ? "No response from Gemini" : "No response from OpenAI")
+    }
+
+    try {
+      result = JSON.parse(response)
+    } catch (parseError) {
+      // Try to extract JSON from Gemini's or OpenAI's response if extra text is present
+      const match = response.match(/\{[\s\S]*\}/)
+      if (match) {
+        result = JSON.parse(match[0])
+      } else {
+        throw new Error("Failed to parse AI response")
+      }
+    }
 
     // Validate and fix timezones
     if (result.timezone && !isValidTimezone(result.timezone)) {
@@ -137,7 +171,7 @@ Example for "4am on 28 May in Tokyo, Singapore":
 
     if (result.secondTimezone && !isValidTimezone(result.secondTimezone)) {
       console.warn(`Invalid second timezone received: ${result.secondTimezone}`)
-      result.secondTimezone = getFallbackTimezone(result.secondLocation || '')
+      result.secondTimezone = getFallbackTimezone((result.secondLocation ?? '') + '')
     }
 
     return NextResponse.json(result)

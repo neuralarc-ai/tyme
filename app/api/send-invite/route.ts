@@ -89,7 +89,7 @@ ${recipients.join("\n")}`,
             </div>
 
             <div style="margin-top: 30px; font-size: 12px; color: #666;">
-              <p>This invitation was sent using Tyme Meeting Scheduler</p>
+              <p>This invitation was sent using Tyme.</p>
             </div>
           </div>
         `

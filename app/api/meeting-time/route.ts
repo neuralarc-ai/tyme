@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { geminiChatCompletion } from '@/lib/gemini'
 
 // Function to check if a time is within business hours (9 AM - 8 PM)
 function isWithinBusinessHours(time: string): boolean {
@@ -28,15 +29,8 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
     if (!apiKey) {
       console.error("OpenAI API key is missing")
-      return NextResponse.json(
-        {
-          error: "Configuration error",
-          time: null,
-          timezone: null,
-          explanation: "OpenAI API key is not configured. Please check your environment variables."
-        },
-        { status: 500 }
-      )
+      // Fallback to Gemini if OpenAI key is missing
+      return await handleGemini(request)
     }
 
     const openai = new OpenAI({
@@ -127,6 +121,8 @@ Respond with a JSON object in this format:
   }
 }`
 
+    let response: string | undefined = undefined
+    let usedGemini = false
     try {
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -143,58 +139,181 @@ Respond with a JSON object in this format:
         temperature: 0.1,
         max_tokens: 1000
       })
-
-      const response = completion.choices[0].message.content
-      if (!response) {
-        throw new Error("No response from AI")
-      }
-
+      response = completion.choices[0].message.content ?? undefined
+    } catch (openaiError) {
+      // Fallback to Gemini if OpenAI fails
       try {
-        const parsedResponse = JSON.parse(response)
-
-        // Validate the response format
-        if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
-          throw new Error("Invalid response format from AI")
-        }
-
-        // If we have a business hours time in the response, prioritize that
-        if (parsedResponse.businessHoursTime) {
-          return NextResponse.json({
-            time: parsedResponse.businessHoursTime.time,
-            timezone: parsedResponse.businessHoursTime.timezone,
-            localTimes: parsedResponse.businessHoursTime.localTimes,
-            explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
-            isOutsideBusinessHours: false,
-            alternateTime: {
-              time: parsedResponse.time,
-              timezone: parsedResponse.timezone,
-              localTimes: parsedResponse.localTimes,
-              explanation: parsedResponse.explanation,
-              isOutsideBusinessHours: true
-            }
-          })
-        }
-
-        // Otherwise, return the suggested time with appropriate flags
-        return NextResponse.json({
-          time: parsedResponse.time,
-          timezone: parsedResponse.timezone,
-          localTimes: parsedResponse.localTimes,
-          explanation: parsedResponse.explanation,
-          isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
+        const geminiRes = await geminiChatCompletion({
+          prompt,
+          systemPrompt: "You are a timezone and scheduling expert. Find optimal meeting times considering business hours and timezone differences.",
+          maxTokens: 1000,
+          temperature: 0.1,
         })
-      } catch (parseError) {
-        console.error("Error parsing AI response:", parseError)
-        console.error("Raw response:", response)
+        response = geminiRes.content
+        usedGemini = true
+      } catch (geminiError) {
+        console.error("Both OpenAI and Gemini failed:", openaiError, geminiError)
+        throw new Error("Both OpenAI and Gemini failed: " + (geminiError instanceof Error ? geminiError.message : String(geminiError)))
+      }
+    }
+
+    if (!response) {
+      throw new Error(usedGemini ? "No response from Gemini" : "No response from OpenAI")
+    }
+
+    let parsedResponse: any
+    try {
+      parsedResponse = JSON.parse(response)
+    } catch (parseError) {
+      // Try to extract JSON from Gemini's or OpenAI's response if extra text is present
+      const match = response.match(/\{[\s\S]*\}/)
+      if (match) {
+        parsedResponse = JSON.parse(match[0])
+      } else {
         throw new Error("Failed to parse AI response")
       }
-
-    } catch (error) {
-      console.error("Error in OpenAI API call:", error)
-      throw new Error(error instanceof Error ? error.message : "Failed to get AI suggestions")
     }
+
+    // Validate the response format
+    if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
+      throw new Error("Invalid response format from AI")
+    }
+
+    // If we have a business hours time in the response, prioritize that
+    if (parsedResponse.businessHoursTime) {
+      return NextResponse.json({
+        time: parsedResponse.businessHoursTime.time || '',
+        timezone: parsedResponse.businessHoursTime.timezone || '',
+        localTimes: parsedResponse.businessHoursTime.localTimes,
+        explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
+        isOutsideBusinessHours: false,
+        alternateTime: {
+          time: parsedResponse.time || '',
+          timezone: parsedResponse.timezone || '',
+          localTimes: parsedResponse.localTimes,
+          explanation: parsedResponse.explanation || '',
+          isOutsideBusinessHours: true
+        }
+      })
+    }
+
+    // Otherwise, return the suggested time with appropriate flags
+    return NextResponse.json({
+      time: parsedResponse.time || '',
+      timezone: parsedResponse.timezone || '',
+      localTimes: parsedResponse.localTimes,
+      explanation: parsedResponse.explanation || '',
+      isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
+    })
   } catch (error) {
     console.error("Error in meeting-time API:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        time: null,
+        timezone: null,
+        explanation: error instanceof Error ? error.message : "Failed to calculate meeting time"
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// Gemini fallback handler
+async function handleGemini(request: Request) {
+  try {
+    const { locations, query } = await request.json()
+    // Validate input
+    if (!locations || !Array.isArray(locations) || locations.length < 2) {
+      return NextResponse.json(
+        { 
+          error: "Invalid input: At least two locations are required",
+          time: null,
+          timezone: null,
+          explanation: "Please provide at least two valid locations"
+        },
+        { status: 400 }
+      )
+    }
+    for (const loc of locations) {
+      if (!loc.timezone || !loc.location) {
+        return NextResponse.json(
+          {
+            error: "Invalid location data",
+            time: null,
+            timezone: null,
+            explanation: "Each location must have a timezone and location name"
+          },
+          { status: 400 }
+        )
+      }
+    }
+    let preferredTime = null
+    if (query) {
+      const timeMatch = query.match(/(\d{1,2}(?::\d{2})?(?:\s*[AaPp][Mm])?)/);
+      if (timeMatch) {
+        preferredTime = timeMatch[1];
+      }
+    }
+    const now = new Date()
+    const times = locations.map(loc => {
+      try {
+        const time = now.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: loc.timezone
+        })
+        return { time, timezone: loc.timezone, location: loc.location }
+      } catch (error) {
+        throw new Error(`Invalid timezone: ${loc.timezone}`)
+      }
+    })
+    const prompt = `Given these locations and their current times:\n${times.map(t => `${t.location} (${t.timezone}): ${t.time}`).join('\n')}\n\nFind TWO suitable meeting times:\n1. A time that works within business hours (9 AM - 8 PM) for all locations\n2. If no business hours time is found, suggest any suitable time that works for all locations\n\nConsider:\n- Business hours are 9 AM to 8 PM in each location's local time\n- Prefer times that are convenient for all participants\n- Account for timezone differences\n${preferredTime ? `- Consider the preferred time: ${preferredTime}` : ''}\n\nRespond with a JSON object in this format:\n{\n  "time": "string", // The suggested meeting time (e.g., "10:00 AM")\n  "timezone": "string", // The timezone for the suggested time\n  "localTimes": {}, // Object with local times for each location\n  "explanation": "string", // Explanation of why this time was chosen\n  "isOutsideBusinessHours": boolean, // Whether the suggested time is outside business hours for any location\n  "businessHoursTime": { // Optional, only if a business hours time is found when suggesting outside hours\n    "time": "string",\n    "timezone": "string",\n    "localTimes": {}\n  }\n}`
+    const geminiRes = await geminiChatCompletion({
+      prompt,
+      systemPrompt: "You are a timezone and scheduling expert. Find optimal meeting times considering business hours and timezone differences.",
+      maxTokens: 1000,
+      temperature: 0.1,
+    })
+    let parsedResponse: any
+    try {
+      parsedResponse = JSON.parse(geminiRes.content)
+    } catch (parseError) {
+      const match = geminiRes.content.match(/\{[\s\S]*\}/)
+      if (match) {
+        parsedResponse = JSON.parse(match[0])
+      } else {
+        throw new Error("Failed to parse Gemini response")
+      }
+    }
+    if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
+      throw new Error("Invalid response format from Gemini")
+    }
+    if (parsedResponse.businessHoursTime) {
+      return NextResponse.json({
+        time: parsedResponse.businessHoursTime.time || '',
+        timezone: parsedResponse.businessHoursTime.timezone || '',
+        localTimes: parsedResponse.businessHoursTime.localTimes,
+        explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
+        isOutsideBusinessHours: false,
+        alternateTime: {
+          time: parsedResponse.time || '',
+          timezone: parsedResponse.timezone || '',
+          localTimes: parsedResponse.localTimes,
+          explanation: parsedResponse.explanation || '',
+          isOutsideBusinessHours: true
+        }
+      })
+    }
+    return NextResponse.json({
+      time: parsedResponse.time || '',
+      timezone: parsedResponse.timezone || '',
+      localTimes: parsedResponse.localTimes,
+      explanation: parsedResponse.explanation || '',
+      isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
+    })
+  } catch (error) {
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "An unexpected error occurred",
