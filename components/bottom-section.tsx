@@ -202,17 +202,17 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
             </button>
             <button
               type="submit"
-              disabled={isProcessing}
+              disabled={isProcessing || isLoading}
               className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                isProcessing 
+                (isProcessing || isLoading)
                   ? 'bg-white/50 cursor-not-allowed' 
                   : 'bg-white hover:bg-white/90'
               }`}
             >
-              {isProcessing ? (
+              {(isProcessing || isLoading) ? (
                 <Loader2 className="w-5 h-5 text-black animate-spin" />
               ) : (
-              <ArrowUp className="w-5 h-5 text-black" />
+                <ArrowUp className="w-5 h-5 text-black" />
               )}
             </button>
           </div>

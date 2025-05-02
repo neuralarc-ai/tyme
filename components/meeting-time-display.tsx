@@ -3,6 +3,7 @@ import { InviteDialog } from "./invite-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { motion } from "framer-motion"
 
 interface MeetingTimeDisplayProps {
   locations: {
@@ -78,9 +79,9 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
           throw new Error(data.error || 'Failed to calculate meeting time')
         }
 
+        // Set best meeting time immediately
         setBestMeetingTime(data)
-        
-        // Only set meeting date if we found a valid time
+        // Set meeting date if we found a valid time
         if (data.time && data.timezone) {
           const tomorrow = new Date()
           tomorrow.setDate(tomorrow.getDate() + 1)
@@ -92,6 +93,8 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
             timeZone: data.timezone
           }))
         }
+        // If you want to fetch additional data (like weather), do it here in the background
+        // (No blocking UI)
       } catch (error) {
         console.error("Error getting meeting time:", error)
         setError(error instanceof Error ? error.message : "Failed to calculate meeting time")
@@ -122,7 +125,12 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
         </Alert>
       ) : bestMeetingTime ? (
         bestMeetingTime.time && bestMeetingTime.timezone ? (
-          <div className="flex flex-col items-center gap-4 py-4 px-8 bg-black rounded-lg border border-white/10 relative w-full">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center gap-4 py-4 px-8 bg-black rounded-lg border border-white/10 relative w-full"
+          >
             {/* Main Meeting Time Section */}
             <div className="w-full">
               <div className="text-lg font-medium text-white/90 mb-2">
@@ -200,7 +208,7 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
                 timezone={bestMeetingTime.timezone}
               />
             </div>
-          </div>
+          </motion.div>
         ) : (
           <Alert variant="destructive">
             <AlertDescription>

@@ -88,7 +88,7 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         description: "Meeting invitations have been sent successfully.",
       })
 
-      // Reset form
+      // Reset form (do not close dialog automatically)
       setFormData({
         senderName: "",
         senderEmail: "",

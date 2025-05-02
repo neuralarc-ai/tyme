@@ -47,11 +47,15 @@ export async function POST(request: Request) {
 
     // Split recipient emails into an array
     const recipients = recipientEmails.split(",").map(email => email.trim())
+    // Add senderEmail to recipients if not already present
+    if (senderEmail && !recipients.includes(senderEmail)) {
+      recipients.push(senderEmail)
+    }
 
     try {
       // Send email using Nodemailer
       await transporter.sendMail({
-        from: `"${senderName}" <${process.env.EMAIL_USER}>`,
+        from: `Tyme <${process.env.EMAIL_USER}>`,
         to: recipients.join(", "),
         subject: `Meeting Invitation: ${meetingDate} at ${meetingTime} ${timezone}`,
         text: `${senderName} has invited you for a meeting on ${meetingDate} at ${meetingTime} ${timezone}.
@@ -89,7 +93,7 @@ ${recipients.join("\n")}`,
             </div>
 
             <div style="margin-top: 30px; font-size: 12px; color: #666;">
-              <p>This invitation was sent using Tyme.</p>
+              <p>This invitation was sent using Tyme Meeting Scheduler</p>
             </div>
           </div>
         `

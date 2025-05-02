@@ -23,6 +23,8 @@ interface WeatherData {
 
 interface TimeDisplayProps {
   searchQuery?: string
+  isLoading?: boolean
+  setIsLoading?: (loading: boolean) => void
 }
 
 interface SearchResult {
@@ -145,12 +147,11 @@ const calculateLocalTime = (targetTime: string, targetTimezone: string, currentT
   }
 }
 
-export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
+export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: TimeDisplayProps) {
   const [timezone, setTimezone] = useState<string>("")
   const [location, setLocation] = useState<string>("")
   const [showPermission, setShowPermission] = useState<boolean>(true)
   const [error, setError] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [weather, setWeather] = useState<any>(null)
   const { toast } = useToast()
@@ -190,7 +191,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
     if (searchQuery) {
       const handleSearch = async () => {
         try {
-          setIsLoading(true)
+          setIsLoading && setIsLoading(true)
           const result = await parseTimeQuery(searchQuery)
           
           if (result.error || !result.location || !result.timezone) {
@@ -319,7 +320,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
           })
           setSearchResult(null)
         } finally {
-          setIsLoading(false)
+          setIsLoading && setIsLoading(false)
         }
       }
       handleSearch()
@@ -328,7 +329,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
 
   const handleLocationGranted = async (position: GeolocationPosition) => {
     try {
-      setIsLoading(true)
+      setIsLoading && setIsLoading(true)
       const { latitude, longitude } = position.coords
       
       // Save location permission and data
@@ -360,7 +361,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
       console.error("Error getting location data:", error)
       setError("Error getting location information")
     } finally {
-      setIsLoading(false)
+      setIsLoading && setIsLoading(false)
     }
   }
 
@@ -373,13 +374,6 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
 
   return (
     <div className="relative w-full h-full overflow-hidden grain bg-white">
-      {/* Loading Spinner Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-12 h-12 border-4 border-white border-t-black rounded-full animate-spin" />
-          <span className="ml-4 text-white text-lg font-semibold">Loading...</span>
-        </div>
-      )}
       {showPermission && (
         <LocationPermission 
           onLocationGranted={handleLocationGranted} 

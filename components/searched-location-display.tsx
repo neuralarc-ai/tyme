@@ -138,10 +138,8 @@ export function SearchedLocationDisplay({
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
-      
       try {
         if (searchedTime && timezone) {
-          // Format time to ensure two-digit hours
           const [timePart, period] = searchedTime.split(' ')
           const [hours, minutes] = timePart.split(':')
           setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
@@ -159,8 +157,6 @@ export function SearchedLocationDisplay({
             hour12: true
           }))
         }
-
-        // Update date
         setDisplayDate(formatDate(date, timezone))
       } catch (error) {
         console.error('Error updating time:', error)
@@ -172,9 +168,8 @@ export function SearchedLocationDisplay({
         setDisplayDate(formatDate(null, timezone))
       }
     }
-
+    updateTime() // Call immediately for instant display
     const interval = setInterval(updateTime, 1000)
-    updateTime()
     return () => clearInterval(interval)
   }, [timezone, searchedTime, date])
 

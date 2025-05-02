@@ -248,10 +248,8 @@ export function CurrentLocationDisplay({
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
-      
       try {
         if (searchedTime && searchedTimezone && timezone) {
-          // Convert the searched time to the current timezone
           const convertedTime = convertTimeBetweenTimezones(searchedTime, searchedTimezone, timezone)
           setTime(convertedTime)
         } else if (timezone) {
@@ -268,8 +266,6 @@ export function CurrentLocationDisplay({
             hour12: true
           }))
         }
-
-        // Update date
         setDisplayDate(formatDate(date, timezone))
       } catch (error) {
         console.error('Error updating time:', error)
@@ -281,9 +277,8 @@ export function CurrentLocationDisplay({
         setDisplayDate(formatDate(null, timezone))
       }
     }
-
+    updateTime() // Call immediately for instant display
     const interval = setInterval(updateTime, 1000)
-    updateTime()
     return () => clearInterval(interval)
   }, [timezone, searchedTime, searchedTimezone, date])
 
