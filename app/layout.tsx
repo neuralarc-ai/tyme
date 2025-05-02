@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import Navbar, { TimeFormatProvider } from "@/components/navbar"
 
 export const metadata: Metadata = {
   title: "Tyme - Find the best time for your meetings.",
@@ -32,8 +33,11 @@ export default function RootLayout({
       </head>
       <body className="fustat">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
-          <Toaster />
+          <TimeFormatProvider>
+            <Navbar />
+            {children}
+            <Toaster />
+          </TimeFormatProvider>
         </ThemeProvider>
       </body>
     </html>

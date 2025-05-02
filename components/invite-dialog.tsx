@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
+import { CheckCircle2 } from "lucide-react"
 
 interface InviteDialogProps {
   meetingTime: string
@@ -121,9 +122,11 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
           </DialogDescription>
         </DialogHeader>
         {successMessage ? (
-          <div className="p-4 bg-white text-black rounded-lg text-center font-semibold">
-            {successMessage}
-            <Button className="mt-4 bg-black text-white border border-white hover:bg-white hover:text-black transition-colors" onClick={() => setIsOpen(false)}>
+          <div className="flex flex-col items-center justify-center p-6 bg-white text-black rounded-lg text-center">
+            <CheckCircle2 className="text-green-500 mb-2 animate-bounce" size={48} />
+            <div className="text-2xl font-bold mb-1">Invitations Sent!</div>
+            <div className="text-base text-gray-700 mb-4">All participants have received your invitation.</div>
+            <Button className="mt-2 bg-black text-white border border-white hover:bg-white hover:text-black transition-colors" onClick={() => setIsOpen(false)}>
               Close
             </Button>
           </div>

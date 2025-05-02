@@ -11,6 +11,7 @@ interface MeetingTimeDisplayProps {
     location: string
   }[]
   query?: string
+  is24HourFormat?: boolean
 }
 
 interface MeetingTimeResponse {
@@ -29,7 +30,7 @@ interface MeetingTimeResponse {
   }
 }
 
-export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps) {
+export function MeetingTimeDisplay({ locations, query, is24HourFormat = false }: MeetingTimeDisplayProps) {
   const [bestMeetingTime, setBestMeetingTime] = useState<MeetingTimeResponse | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isLocationsLoaded, setIsLocationsLoaded] = useState(false)
@@ -112,6 +113,19 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
     return null
   }
 
+  // Helper to format time string
+  function formatDisplayTime(time: string | null) {
+    if (!time) return "--:--"
+    if (!is24HourFormat) return time
+    // Convert "hh:mm AM/PM" to 24hr
+    const [timePart, period] = time.split(" ")
+    if (!period) return timePart // already 24hr
+    let [h, m] = timePart.split(":").map(Number)
+    if (period.toLowerCase() === "pm" && h < 12) h += 12
+    if (period.toLowerCase() === "am" && h === 12) h = 0
+    return `${String(h).padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  }
+
   return (
     <div className="flex w-1/2 items-center justify-center z-50 p-4">
       {isCalculating ? (
@@ -143,20 +157,24 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="text-2xl font-semibold text-white">{bestMeetingTime.time}</div>
+              <div className="text-2xl font-semibold text-white">{formatDisplayTime(bestMeetingTime.time)}</div>
               <div className="text-lg text-white/70">{bestMeetingTime.timezone}</div>
               
               {/* Local times for main suggestion */}
               {bestMeetingTime.localTimes && (
                 <div className="w-full mt-2 space-y-1 text-sm text-white/80">
-                  {Object.entries(bestMeetingTime.localTimes).map(([timezone, time]) => (
-                    <div key={timezone} className="flex justify-between">
-                      <span>{timezone}:</span>
-                      <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
-                        {time}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(bestMeetingTime.localTimes).map(([timezone, time]) => {
+                    const displayTime = formatDisplayTime(time)
+                    const hour = parseInt(displayTime.split(":")[0])
+                    const isOutside = (!is24HourFormat && ((time.includes('PM') && hour >= 8) || (time.includes('AM') && hour < 9))) ||
+                      (is24HourFormat && (hour >= 20 || hour < 9))
+                    return (
+                      <div key={timezone} className="flex justify-between">
+                        <span>{timezone}:</span>
+                        <span className={isOutside ? 'text-yellow-400' : ''}>{displayTime}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -167,19 +185,23 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
                 <div className="text-lg font-medium text-white/90 mb-2">
                   {bestMeetingTime.isOutsideBusinessHours ? "Business Hours Alternative" : "Alternative Time"}
                 </div>
-                <div className="text-xl font-semibold text-white">{bestMeetingTime.alternateTime.time}</div>
+                <div className="text-xl font-semibold text-white">{formatDisplayTime(bestMeetingTime.alternateTime.time)}</div>
                 <div className="text-md text-white/70">{bestMeetingTime.alternateTime.timezone}</div>
                 
                 {bestMeetingTime.alternateTime.localTimes && (
                   <div className="w-full mt-2 space-y-1 text-sm text-white/80">
-                    {Object.entries(bestMeetingTime.alternateTime.localTimes).map(([timezone, time]) => (
-                      <div key={timezone} className="flex justify-between">
-                        <span>{timezone}:</span>
-                        <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
-                          {time}
-                        </span>
-                      </div>
-                    ))}
+                    {Object.entries(bestMeetingTime.alternateTime.localTimes).map(([timezone, time]) => {
+                      const displayTime = formatDisplayTime(time)
+                      const hour = parseInt(displayTime.split(":")[0])
+                      const isOutside = (!is24HourFormat && ((time.includes('PM') && hour >= 8) || (time.includes('AM') && hour < 9))) ||
+                        (is24HourFormat && (hour >= 20 || hour < 9))
+                      return (
+                        <div key={timezone} className="flex justify-between">
+                          <span>{timezone}:</span>
+                          <span className={isOutside ? 'text-yellow-400' : ''}>{displayTime}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

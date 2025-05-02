@@ -17,6 +17,7 @@ interface SearchedLocationDisplayProps {
   }
   searchedTime: string
   date: string | null
+  is24HourFormat: boolean
 }
 
 function getWeatherIcon(code: string, isNight: boolean) {
@@ -129,7 +130,8 @@ export function SearchedLocationDisplay({
   location,
   weather,
   searchedTime,
-  date
+  date,
+  is24HourFormat
 }: SearchedLocationDisplayProps) {
   const [time, setTime] = useState<string>("")
   const [displayDate, setDisplayDate] = useState<string>("")
@@ -142,19 +144,26 @@ export function SearchedLocationDisplay({
         if (searchedTime && timezone) {
           const [timePart, period] = searchedTime.split(' ')
           const [hours, minutes] = timePart.split(':')
-          setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
+          if (is24HourFormat) {
+            let h = parseInt(hours, 10)
+            if (period && period.toLowerCase() === 'pm' && h < 12) h += 12
+            if (period && period.toLowerCase() === 'am' && h === 12) h = 0
+            setTime(`${String(h).padStart(2, '0')}:${minutes}`)
+          } else {
+            setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
+          }
         } else if (timezone) {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true,
+            hour12: !is24HourFormat,
             timeZone: timezone
           }))
         } else {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true
+            hour12: !is24HourFormat
           }))
         }
         setDisplayDate(formatDate(date, timezone))
@@ -163,7 +172,7 @@ export function SearchedLocationDisplay({
         setTime(now.toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
-          hour12: true
+          hour12: !is24HourFormat
         }))
         setDisplayDate(formatDate(null, timezone))
       }
@@ -171,10 +180,15 @@ export function SearchedLocationDisplay({
     updateTime() // Call immediately for instant display
     const interval = setInterval(updateTime, 1000)
     return () => clearInterval(interval)
-  }, [timezone, searchedTime, date])
+  }, [timezone, searchedTime, date, is24HourFormat])
 
-  const isNight = time.toUpperCase().includes("PM") && parseInt(time.split(":")[0]) >= 6
+  const isNight = !is24HourFormat && time.toUpperCase().includes("PM") && parseInt(time.split(":")[0]) >= 6
 
+  let timePart = time
+  let period = ""
+  if (!is24HourFormat && time.includes(" ")) {
+    [timePart, period] = time.split(" ")
+  }
   return (
     <div className="grain w-full h-full bg-white">
       <motion.div 
@@ -207,8 +221,10 @@ export function SearchedLocationDisplay({
             }}
             className="2xl:text-[220px] lg:text-8xl text-5xl font-black text-black mb-4"
           >
-            {time.split(' ')[0]}
-            <span className="text-2xl lg:text-5xl font-bold ml-2">{time.split(' ')[1]}</span>
+            {timePart}
+            {period && (
+              <span className="text-2xl lg:text-5xl font-bold ml-2">{period}</span>
+            )}
           </motion.div>
 
           <div className="flex justify-between items-center w-full max-w-2xl mx-auto">

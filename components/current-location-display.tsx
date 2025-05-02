@@ -10,6 +10,7 @@ interface CurrentLocationDisplayProps {
   searchedTime: string | null
   searchedTimezone: string | null
   date: string | null
+  is24HourFormat: boolean
 }
 
 const getWeatherIcon = (weatherCode: string, isNight: boolean) => {
@@ -111,7 +112,7 @@ const formatLocation = (location: string): string => {
   }
 }
 
-const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimezone: string): string => {
+const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimezone: string, is24HourFormat: boolean): string => {
   try {
     // Parse the input time
     const [timePart, period] = time.split(' ')
@@ -148,7 +149,7 @@ const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimez
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
+      hour12: !is24HourFormat,
       timeZone: toTimezone
     })
   } catch (error) {
@@ -239,7 +240,8 @@ export function CurrentLocationDisplay({
   weather,
   searchedTime,
   searchedTimezone,
-  date
+  date,
+  is24HourFormat
 }: CurrentLocationDisplayProps) {
   const [time, setTime] = useState<string>("")
   const [displayDate, setDisplayDate] = useState<string>("")
@@ -250,20 +252,20 @@ export function CurrentLocationDisplay({
       const now = new Date()
       try {
         if (searchedTime && searchedTimezone && timezone) {
-          const convertedTime = convertTimeBetweenTimezones(searchedTime, searchedTimezone, timezone)
+          const convertedTime = convertTimeBetweenTimezones(searchedTime, searchedTimezone, timezone, is24HourFormat)
           setTime(convertedTime)
         } else if (timezone) {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true,
+            hour12: !is24HourFormat,
             timeZone: timezone
           }))
         } else {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true
+            hour12: !is24HourFormat
           }))
         }
         setDisplayDate(formatDate(date, timezone))
@@ -272,7 +274,7 @@ export function CurrentLocationDisplay({
         setTime(now.toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
-          hour12: true
+          hour12: !is24HourFormat
         }))
         setDisplayDate(formatDate(null, timezone))
       }
@@ -280,11 +282,15 @@ export function CurrentLocationDisplay({
     updateTime() // Call immediately for instant display
     const interval = setInterval(updateTime, 1000)
     return () => clearInterval(interval)
-  }, [timezone, searchedTime, searchedTimezone, date])
+  }, [timezone, searchedTime, searchedTimezone, date, is24HourFormat])
 
   const timeInfo = getGradientForTime(time)
   const formattedLocation = formatLocation(location)
-  const [timePart, period] = time.split(" ")
+  let timePart = time
+  let period = ""
+  if (!is24HourFormat && time.includes(" ")) {
+    [timePart, period] = time.split(" ")
+  }
 
   return (
     <div className="grain w-full h-full bg-white">

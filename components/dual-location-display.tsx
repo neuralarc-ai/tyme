@@ -25,6 +25,7 @@ interface DualLocationDisplayProps {
   secondLocation: LocationData
   currentLocation?: LocationData
   query?: string
+  is24HourFormat: boolean
 }
 
 const getWeatherIcon = (weatherData: LocationData["weather"]) => {
@@ -116,8 +117,7 @@ const formatLocation = (location: string) => {
     .join(', ')
 }
 
-export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query }: DualLocationDisplayProps) {
-  const is24HourFormat = false
+export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query, is24HourFormat }: DualLocationDisplayProps) {
   const firstTime = formatTime(firstLocation.searchedTime || null, is24HourFormat)
   const secondTime = formatTime(secondLocation.searchedTime || null, is24HourFormat)
 
@@ -198,6 +198,7 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
             { timezone: secondLocation.timezone, location: secondLocation.location }
           ]}
           query={query}
+          is24HourFormat={is24HourFormat}
         />
       )}
 

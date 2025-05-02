@@ -93,31 +93,36 @@ ${recipients.join("\n")}`,
             </div>
 
             <div style="margin-top: 30px; font-size: 12px; color: #666;">
-              <p>This invitation was sent using Tyme Meeting Scheduler</p>
+              <p>This invitation was sent using <a href="https://tyme.neuralarc.ai" style="color: #0066cc; text-decoration: underline;" target="_blank" rel="noopener noreferrer">Tyme</a>.</p>
             </div>
           </div>
         `
       })
-
-      return NextResponse.json({ message: "Invitations sent successfully" })
-    } catch (emailError) {
-      console.error('Email Error:', emailError)
+    } catch (error) {
+      console.error('Error sending email:', error)
       return NextResponse.json(
         {
-          error: "Email error",
-          message: "Failed to send invitations. Please check your email configuration."
+          error: 'Email sending error',
+          message: 'An error occurred while sending the email. Please try again later.'
         },
         { status: 500 }
       )
     }
-  } catch (error) {
-    console.error('Server error:', error)
+
     return NextResponse.json(
       {
-        error: "Server error",
-        message: "An unexpected error occurred"
+        message: 'Email sent successfully'
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error('Error processing request:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: 'An error occurred while processing the request. Please try again later.'
       },
       { status: 500 }
     )
   }
-} 
+}

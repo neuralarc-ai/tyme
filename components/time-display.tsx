@@ -9,6 +9,7 @@ import { CurrentLocationDisplay } from "./current-location-display"
 import { SearchedLocationDisplay } from "./searched-location-display"
 import { useToast } from "@/components/ui/use-toast"
 import { DualLocationDisplay } from "./dual-location-display"
+import { useTimeFormat } from "@/components/navbar"
 
 interface WeatherData {
   main: {
@@ -155,6 +156,19 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [weather, setWeather] = useState<any>(null)
   const { toast } = useToast()
+  const { timeFormat } = useTimeFormat()
+  const is24HourFormat = timeFormat === "24hr"
+
+  // Listen for reset event from Navbar
+  useEffect(() => {
+    const handler = () => {
+      setSearchResult(null)
+      setError("")
+      // Do NOT reset showPermission, so permission dialog is not shown again
+    }
+    window.addEventListener('reset-time-display', handler)
+    return () => window.removeEventListener('reset-time-display', handler)
+  }, [])
 
   const fetchWeather = async (lat: number, lon: number) => {
     try {
@@ -373,7 +387,7 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden grain bg-white">
+    <div className="relative w-full h-full overflow-hidden grain bg-white pt-[88px]">
       {showPermission && (
         <LocationPermission 
           onLocationGranted={handleLocationGranted} 
@@ -398,6 +412,7 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
                 searchedTime={null}
                 searchedTimezone={null}
                 date={null}
+                is24HourFormat={is24HourFormat}
               />
             </motion.div>
           ) : (
@@ -417,6 +432,7 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
                   searchedTime={searchResult.currentLocationTime || null}
                   searchedTimezone={searchResult.timezone}
                   date={searchResult.date || null}
+                  is24HourFormat={is24HourFormat}
                 />
               </motion.div>
 
@@ -450,6 +466,7 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
                       weather: weather
                     }}
                     query={searchQuery}
+                    is24HourFormat={is24HourFormat}
                   />
                 ) : (
                   <SearchedLocationDisplay
@@ -458,6 +475,7 @@ export default function TimeDisplay({ searchQuery, isLoading, setIsLoading }: Ti
                     weather={searchResult.weather}
                     searchedTime={searchResult.time || ""}
                     date={searchResult.date || null}
+                    is24HourFormat={is24HourFormat}
                   />
                 )}
               </motion.div>
