@@ -157,9 +157,9 @@ Respond with a JSON object in this format:
       }
     }
 
-    if (!response) {
+      if (!response) {
       throw new Error(usedGemini ? "No response from Gemini" : "No response from OpenAI")
-    }
+      }
 
     let parsedResponse: any
     try {
@@ -174,37 +174,37 @@ Respond with a JSON object in this format:
       }
     }
 
-    // Validate the response format
-    if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
-      throw new Error("Invalid response format from AI")
-    }
+        // Validate the response format
+        if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
+          throw new Error("Invalid response format from AI")
+        }
 
-    // If we have a business hours time in the response, prioritize that
-    if (parsedResponse.businessHoursTime) {
-      return NextResponse.json({
+        // If we have a business hours time in the response, prioritize that
+        if (parsedResponse.businessHoursTime) {
+          return NextResponse.json({
         time: parsedResponse.businessHoursTime.time || '',
         timezone: parsedResponse.businessHoursTime.timezone || '',
-        localTimes: parsedResponse.businessHoursTime.localTimes,
-        explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
-        isOutsideBusinessHours: false,
-        alternateTime: {
+            localTimes: parsedResponse.businessHoursTime.localTimes,
+            explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
+            isOutsideBusinessHours: false,
+            alternateTime: {
           time: parsedResponse.time || '',
           timezone: parsedResponse.timezone || '',
-          localTimes: parsedResponse.localTimes,
+              localTimes: parsedResponse.localTimes,
           explanation: parsedResponse.explanation || '',
-          isOutsideBusinessHours: true
+              isOutsideBusinessHours: true
+            }
+          })
         }
-      })
-    }
 
-    // Otherwise, return the suggested time with appropriate flags
-    return NextResponse.json({
+        // Otherwise, return the suggested time with appropriate flags
+        return NextResponse.json({
       time: parsedResponse.time || '',
       timezone: parsedResponse.timezone || '',
-      localTimes: parsedResponse.localTimes,
+          localTimes: parsedResponse.localTimes,
       explanation: parsedResponse.explanation || '',
-      isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
-    })
+          isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
+        })
   } catch (error) {
     console.error("Error in meeting-time API:", error)
     return NextResponse.json(

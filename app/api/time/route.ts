@@ -114,21 +114,21 @@ Example for "4am on 28 May in Tokyo, Singapore":
       const openai = new OpenAI({
         apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
       })
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a timezone expert. Extract location and time information from queries. Always respond with valid JSON."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 500
-      })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a timezone expert. Extract location and time information from queries. Always respond with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    })
       response = completion.choices[0].message.content ?? undefined
     } catch (openaiError) {
       // Fallback to Gemini if OpenAI fails

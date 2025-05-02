@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { google } from 'googleapis'
 
 interface EmailRequest {
   senderName: string
@@ -10,6 +11,57 @@ interface EmailRequest {
   meetingTime: string
   meetingDate: string
   timezone: string
+}
+
+// Helper to generate a Google Meet link
+async function generateGoogleMeetLink({
+  clientId,
+  clientSecret,
+  refreshToken,
+  calendarId = 'primary',
+  summary = 'Tyme Meeting',
+  description = '',
+  startTime = new Date(Date.now() + 5 * 60 * 1000),
+  endTime = new Date(Date.now() + 35 * 60 * 1000),
+  timeZone = 'UTC',
+  attendees = [],
+}: {
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string,
+  calendarId?: string,
+  summary?: string,
+  description?: string,
+  startTime?: Date,
+  endTime?: Date,
+  timeZone?: string,
+  attendees?: string[],
+}) {
+  const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret)
+  oAuth2Client.setCredentials({ refresh_token: refreshToken })
+  const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
+  const event = await calendar.events.insert({
+    calendarId,
+    conferenceDataVersion: 1,
+    requestBody: {
+      summary,
+      description,
+      start: { dateTime: startTime.toISOString(), timeZone },
+      end: { dateTime: endTime.toISOString(), timeZone },
+      conferenceData: {
+        createRequest: {
+          requestId: Math.random().toString(36).substring(2),
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      },
+      attendees: attendees.map(email => ({ email })),
+    },
+    sendUpdates: 'all',
+  })
+  const meetLink = event.data.conferenceData?.entryPoints?.find(
+    (ep) => ep.entryPointType === 'video'
+  )?.uri
+  return { meetLink, eventId: event.data.id }
 }
 
 export async function POST(request: Request) {
@@ -26,6 +78,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check Google API configuration
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN || !process.env.GOOGLE_CALENDAR_EMAIL) {
+      return NextResponse.json({
+        error: 'Google API configuration missing',
+        message: 'Google API credentials are missing. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, and GOOGLE_CALENDAR_EMAIL in your environment.'
+      }, { status: 500 })
+    }
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -38,18 +98,56 @@ export async function POST(request: Request) {
       senderName,
       senderEmail,
       recipientEmails,
-      meetingLink,
       description,
       meetingTime,
       meetingDate,
-      timezone
-    }: EmailRequest = await request.json()
+      timezone,
+      onlyGenerateMeetLink
+    }: EmailRequest & { onlyGenerateMeetLink?: boolean } = await request.json()
 
     // Split recipient emails into an array
     const recipients = recipientEmails.split(",").map(email => email.trim())
     // Add senderEmail to recipients if not already present
     if (senderEmail && !recipients.includes(senderEmail)) {
       recipients.push(senderEmail)
+    }
+
+    // Generate Google Meet link
+    let meetLink = ''
+    try {
+      // Use meetingDate and meetingTime to set event time if possible
+      let startTime = new Date()
+      let endTime = new Date()
+      if (meetingDate && meetingTime) {
+        // Try to parse date and time
+        const dateStr = meetingDate.replace(/\s*\(.+\)/, '') // Remove day of week if present
+        const [datePart, monthPart, yearPart] = dateStr.split(' ')
+        const dateObj = new Date(`${dateStr} ${meetingTime}`)
+        if (!isNaN(dateObj.getTime())) {
+          startTime = dateObj
+          endTime = new Date(dateObj.getTime() + 30 * 60 * 1000)
+        }
+      }
+      const meetResult = await generateGoogleMeetLink({
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        refreshToken: process.env.GOOGLE_REFRESH_TOKEN!,
+        calendarId: process.env.GOOGLE_CALENDAR_EMAIL!,
+        summary: 'Tyme Meeting',
+        description,
+        startTime,
+        endTime,
+        timeZone: timezone || 'UTC',
+        attendees: recipients,
+      })
+      meetLink = meetResult.meetLink || ''
+    } catch (err) {
+      console.error('Failed to generate Google Meet link:', err)
+      return NextResponse.json({ error: 'Failed to generate Google Meet link' }, { status: 500 })
+    }
+
+    if (onlyGenerateMeetLink) {
+      return NextResponse.json({ meetLink })
     }
 
     try {
@@ -60,7 +158,7 @@ export async function POST(request: Request) {
         subject: `Meeting Invitation: ${meetingDate} at ${meetingTime} ${timezone}`,
         text: `${senderName} has invited you for a meeting on ${meetingDate} at ${meetingTime} ${timezone}.
 
-Meeting Link: ${meetingLink}
+Meeting Link: ${meetLink}
 
 Meeting Details:
 ${description}
@@ -75,7 +173,7 @@ ${recipients.join("\n")}`,
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <p><strong>Date:</strong> ${meetingDate}</p>
               <p><strong>Time:</strong> ${meetingTime} ${timezone}</p>
-              <p><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color: #0066cc;">${meetingLink}</a></p>
+              <p><strong>Meeting Link:</strong> <a href="${meetLink}" style="color: #0066cc;">${meetLink}</a></p>
             </div>
 
             <div style="margin: 20px 0;">

@@ -150,7 +150,7 @@ export function SearchedLocationDisplay({
             if (period && period.toLowerCase() === 'am' && h === 12) h = 0
             setTime(`${String(h).padStart(2, '0')}:${minutes}`)
           } else {
-            setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
+          setTime(`${hours.padStart(2, '0')}:${minutes} ${period}`)
           }
         } else if (timezone) {
           setTime(now.toLocaleTimeString('en-US', {

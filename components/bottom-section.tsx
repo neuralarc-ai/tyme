@@ -212,7 +212,7 @@ export function BottomSection({ onSubmit, isLoading = false }: BottomSectionProp
               {(isProcessing || isLoading) ? (
                 <Loader2 className="w-5 h-5 text-black animate-spin" />
               ) : (
-                <ArrowUp className="w-5 h-5 text-black" />
+              <ArrowUp className="w-5 h-5 text-black" />
               )}
             </button>
           </div>
