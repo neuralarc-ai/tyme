@@ -376,7 +376,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden grain">
+    <div className="relative w-full h-full overflow-hidden grain bg-white">
       {showPermission && (
         <LocationPermission 
           onLocationGranted={handleLocationGranted} 
@@ -423,7 +423,7 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
                 />
               </motion.div>
 
-              <div className="w-px h-[80%] py-[10%] bg-gradient-to-b from-transparent from-0% via-black/10 to-transparent to-100%" />
+              <div className="w-[2px] h-full bg-gradient-to-b from-transparent from-10% via-black/10 to-transparent to-90%" />
 
               <motion.div
                 key="search-result"

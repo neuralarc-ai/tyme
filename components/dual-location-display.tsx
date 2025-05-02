@@ -2,7 +2,6 @@ import { motion } from "framer-motion"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
-import OpenAI from "openai"
 import { MeetingTimeDisplay } from "./meeting-time-display"
 
 interface LocationData {
@@ -117,71 +116,6 @@ const formatLocation = (location: string) => {
     .join(', ')
 }
 
-const calculateBestMeetingTime = async (locations: LocationData[]) => {
-  try {
-    const openai = new OpenAI({
-      apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    })
-
-    // Get current time in each timezone
-    const now = new Date()
-    const times = locations.map(loc => {
-      const time = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: loc.timezone
-      })
-      return { time, timezone: loc.timezone, location: loc.location }
-    })
-
-    // Create a prompt for OpenAI
-    const prompt = `Given the following locations and their current times:
-${times.map(t => `${t.location}: ${t.time} (${t.timezone})`).join('\n')}
-
-Find the best meeting time considering:
-1. The first location (${times[0].location}) is the most important
-2. Business hours are 9 AM to 5 PM
-3. Try to find a time that works for all locations
-4. If no perfect time exists, prioritize the first location's business hours
-5. Consider timezone differences and working hours
-6. Provide a brief explanation of why this time was chosen
-
-Respond with ONLY a JSON object in this format:
-{
-  "time": "HH:MM AM/PM",
-  "timezone": "timezone identifier",
-  "explanation": "brief explanation of why this time was chosen"
-}`
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a timezone expert. Find the best meeting time across multiple timezones, prioritizing the first location's business hours."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 500
-    })
-
-    const response = completion.choices[0].message.content
-    if (!response) {
-      throw new Error("No response from OpenAI")
-    }
-
-    return JSON.parse(response)
-  } catch (error) {
-    console.error("Error calculating best meeting time:", error)
-    return null
-  }
-}
-
 export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query }: DualLocationDisplayProps) {
   const is24HourFormat = false
   const firstTime = formatTime(firstLocation.searchedTime || null, is24HourFormat)
@@ -250,12 +184,11 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
         {renderLocationSection(firstLocation, firstTime, true)}
 
         {/* Divider */}
-        <div className="w-full h-px bg-black/10" />
+        <div className="w-full h-[2px] bg-gradient-to-r from-transparent from-0% via-black/10 via-50% to-transparent to-100%" />
 
         {/* Second Location (Bottom Half) */}
         {renderLocationSection(secondLocation, secondTime, false)}
       </div>
-
       {/* Meeting Time Display */}
       {currentLocation && (
         <MeetingTimeDisplay
@@ -267,6 +200,7 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
           query={query}
         />
       )}
+
     </div>
   )
 } 

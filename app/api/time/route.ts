@@ -10,6 +10,41 @@ const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 })
 
+// Function to validate timezone
+function isValidTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+// Function to get a fallback timezone for a location
+function getFallbackTimezone(location: string): string {
+  const commonTimezones = new Map([
+    ['new york', 'America/New_York'],
+    ['london', 'Europe/London'],
+    ['paris', 'Europe/Paris'],
+    ['tokyo', 'Asia/Tokyo'],
+    ['singapore', 'Asia/Singapore'],
+    ['sydney', 'Australia/Sydney'],
+    ['dubai', 'Asia/Dubai'],
+    ['hong kong', 'Asia/Hong_Kong'],
+    ['los angeles', 'America/Los_Angeles'],
+    ['chicago', 'America/Chicago'],
+  ])
+
+  const normalizedLocation = location.toLowerCase().trim()
+  for (const [key, timezone] of commonTimezones.entries()) {
+    if (normalizedLocation.includes(key)) {
+      return timezone
+    }
+  }
+  
+  return 'UTC' // Default fallback
+}
+
 export async function POST(request: Request) {
   try {
     const { query } = await request.json()
@@ -93,6 +128,18 @@ Example for "4am on 28 May in Tokyo, Singapore":
     }
 
     const result = JSON.parse(response)
+
+    // Validate and fix timezones
+    if (result.timezone && !isValidTimezone(result.timezone)) {
+      console.warn(`Invalid timezone received: ${result.timezone}`)
+      result.timezone = getFallbackTimezone(result.location)
+    }
+
+    if (result.secondTimezone && !isValidTimezone(result.secondTimezone)) {
+      console.warn(`Invalid second timezone received: ${result.secondTimezone}`)
+      result.secondTimezone = getFallbackTimezone(result.secondLocation || '')
+    }
+
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error in time API route:", error)
