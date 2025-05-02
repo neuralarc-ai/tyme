@@ -67,8 +67,8 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         }
       })()
     }
-    // Reset form when dialog closes
-    if (!isOpen) {
+    // Reset form only when success dialog is closed
+    if (!isOpen && !successMessage) {
       setFormData({
         senderName: "",
         senderEmail: "",
@@ -77,7 +77,7 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         meetingLink: ""
       })
     }
-  }, [isOpen])
+  }, [isOpen, successMessage])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -236,7 +236,16 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
       </Dialog>
       {/* Success Popup Dialog */}
       {successMessage && (
-        <Dialog open={true} onOpenChange={() => setSuccessMessage("")}> 
+        <Dialog open={true} onOpenChange={() => {
+          setSuccessMessage("");
+          setFormData({
+            senderName: "",
+            senderEmail: "",
+            recipientEmails: "",
+            description: "",
+            meetingLink: ""
+          });
+        }}> 
           <DialogContent className="sm:max-w-[400px] bg-white text-black border border-black">
             <div className="flex flex-col items-center justify-center p-6 text-center">
               <CheckCircle2 className="text-green-500 mb-2 animate-bounce" size={48} />

@@ -133,7 +133,7 @@ export async function POST(request: Request) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         refreshToken: process.env.GOOGLE_REFRESH_TOKEN!,
         calendarId: process.env.GOOGLE_CALENDAR_EMAIL!,
-        summary: 'Tyme Meeting',
+        summary: description || 'Tyme Meeting',
         description,
         startTime,
         endTime,

@@ -42,7 +42,7 @@ export function MeetingTimeDisplay({ locations, query, is24HourFormat = false }:
     setBestMeetingTime(null)
     setIsLocationsLoaded(false)
     setError(null)
-  }, [query])
+  }, [query, locations])
 
   // Check if all locations are loaded
   useEffect(() => {
