@@ -251,9 +251,9 @@ export function CurrentLocationDisplay({
     const updateTime = () => {
       const now = new Date()
       try {
-        if (searchedTime && searchedTimezone && timezone) {
-          const convertedTime = convertTimeBetweenTimezones(searchedTime, searchedTimezone, timezone, is24HourFormat)
-          setTime(convertedTime)
+        if (searchedTime) {
+          // If we have a searched/prompted time, just use it directly
+          setTime(searchedTime)
         } else if (timezone) {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
@@ -280,8 +280,18 @@ export function CurrentLocationDisplay({
       }
     }
     updateTime() // Call immediately for instant display
-    const interval = setInterval(updateTime, 1000)
-    return () => clearInterval(interval)
+    
+    // Only set up the interval if we don't have a searched/prompted time
+    let interval: NodeJS.Timeout | null = null
+    if (!searchedTime) {
+      interval = setInterval(updateTime, 1000)
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
   }, [timezone, searchedTime, searchedTimezone, date, is24HourFormat])
 
   const timeInfo = getGradientForTime(time)

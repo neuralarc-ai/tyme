@@ -3,6 +3,9 @@ import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightCle
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { MeetingTimeDisplay } from "./meeting-time-display"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { InfoCircledIcon } from "@radix-ui/react-icons"
 
 interface LocationData {
   timezone: string
@@ -27,6 +30,22 @@ interface DualLocationDisplayProps {
   query?: string
   is24HourFormat: boolean
 }
+
+// interface MeetingTimeResponse {
+//   time: string | null
+//   timezone: string | null
+//   explanation?: string
+//   error?: string
+//   localTimes?: { [key: string]: string }
+//   isOutsideBusinessHours?: boolean
+//   alternateTime?: {
+//     time: string
+//     timezone: string
+//     localTimes: { [key: string]: string }
+//     explanation: string
+//     isOutsideBusinessHours: boolean
+//   }
+// }
 
 const getWeatherIcon = (weatherData: LocationData["weather"]) => {
   if (!weatherData) return '☀️'
@@ -54,57 +73,15 @@ const getWeatherIcon = (weatherData: LocationData["weather"]) => {
 }
 
 const formatTime = (time: string | null, is24HourFormat: boolean) => {
-  if (!time) return "00:00"
-  
-  try {
-    // Handle different time formats
-    let hours = 0
-    let minutes = 0
-    
-    if (time.includes(':')) {
-      // Handle "HH:MM" or "HH:MM AM/PM" format
-      const [timePart, period] = time.split(' ')
-      const [h, m] = timePart.split(':').map(num => parseInt(num, 10))
-      
-      if (!isNaN(h) && !isNaN(m)) {
-        hours = h
-        minutes = m
-        
-        // Convert to 24-hour format if period is specified
-        if (period) {
-          if (period.toLowerCase() === 'pm' && hours < 12) {
-            hours += 12
-          } else if (period.toLowerCase() === 'am' && hours === 12) {
-            hours = 0
-          }
-        }
-      }
-    } else if (time.includes('am') || time.includes('pm')) {
-      // Handle "2pm" format
-      const period = time.toLowerCase().includes('pm') ? 'pm' : 'am'
-      const num = parseInt(time.replace(/[^0-9]/g, ''), 10)
-      
-      if (!isNaN(num)) {
-        hours = num
-        if (period === 'pm' && hours < 12) {
-          hours += 12
-        } else if (period === 'am' && hours === 12) {
-          hours = 0
-        }
-      }
-    }
-
-    if (is24HourFormat) {
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-    } else {
-      const period = hours >= 12 ? 'PM' : 'AM'
-      const displayHours = hours % 12 || 12
-      return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`
-    }
-  } catch (error) {
-    console.error('Error formatting time:', error)
-    return "00:00"
-  }
+  if (!time) return "--:--"
+  if (!is24HourFormat) return time
+  // Convert "hh:mm AM/PM" to 24hr
+  const [timePart, period] = time.split(" ")
+  if (!period) return timePart // already 24hr
+  let [h, m] = timePart.split(":").map(Number)
+  if (period.toLowerCase() === "pm" && h < 12) h += 12
+  if (period.toLowerCase() === "am" && h === 12) h = 0
+  return `${String(h).padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
 const formatLocation = (location: string) => {
@@ -117,12 +94,112 @@ const formatLocation = (location: string) => {
     .join(', ')
 }
 
-export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query, is24HourFormat }: DualLocationDisplayProps) {
-  const firstTime = formatTime(firstLocation.searchedTime || null, is24HourFormat)
-  const secondTime = formatTime(secondLocation.searchedTime || null, is24HourFormat)
 
-  const renderLocationSection = (location: LocationData, time: string, isFirst: boolean) => {
-    const [timePart, period] = time.split(" ")
+
+export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query, is24HourFormat }: DualLocationDisplayProps) {
+  const [bestMeetingTime, setBestMeetingTime] = useState<MeetingTimeResponse | null>(null)
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isLocationsLoaded, setIsLocationsLoaded] = useState(false)
+  const [meetingDate, setMeetingDate] = useState<string>("")
+
+  interface MeetingTimeResponse {
+    time: string | null
+    timezone: string | null
+    explanation?: string
+    error?: string
+    localTimes?: { [key: string]: string }
+    isOutsideBusinessHours?: boolean
+    alternateTime?: {
+      time: string
+      timezone: string
+      localTimes: { [key: string]: string }
+      explanation: string
+      isOutsideBusinessHours: boolean
+    }
+  }
+
+
+  // Reset states when locations change
+  useEffect(() => {
+    setBestMeetingTime(null)
+    setError(null)
+    setIsLocationsLoaded(false)
+  }, [firstLocation, secondLocation])
+
+  // Check if locations are loaded
+  useEffect(() => {
+    if (firstLocation.timezone && secondLocation.timezone) {
+      setIsLocationsLoaded(true)
+    }
+  }, [firstLocation.timezone, secondLocation.timezone])
+
+  useEffect(() => {
+    const calculateMeetingTime = async () => {
+      if (!isLocationsLoaded) {
+        return
+      }
+
+      setIsCalculating(true)
+      setError(null)
+
+      try {
+        const response = await fetch('/api/meeting-time', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            locations: [
+              { timezone: firstLocation.timezone, location: firstLocation.location },
+              { timezone: secondLocation.timezone, location: secondLocation.location }
+            ],
+            query
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to calculate meeting time')
+        }
+
+        setBestMeetingTime(data)
+        // Set meeting date if we found a valid time
+        if (data.time && data.timezone) {
+          const tomorrow = new Date()
+          tomorrow.setDate(tomorrow.getDate() + 1)
+          setMeetingDate(tomorrow.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: data.timezone
+          }))
+        }
+      } catch (error) {
+        console.error('Error calculating best meeting time:', error)
+        setError(error instanceof Error ? error.message : "Failed to calculate meeting time")
+        setBestMeetingTime(null)
+      } finally {
+        setIsCalculating(false)
+      }
+    }
+
+    calculateMeetingTime()
+  }, [firstLocation, secondLocation, query, isLocationsLoaded])
+
+  const renderLocationSection = (location: LocationData, isFirst: boolean) => {
+    // Get the appropriate time for this location
+    let displayTime = location.searchedTime || "--:--"
+    if (bestMeetingTime?.localTimes) {
+      const locationTime = bestMeetingTime.localTimes[location.location]
+      if (locationTime) {
+        displayTime = formatTime(locationTime, is24HourFormat)
+      }
+    }
+
+    const [timePart, period] = (displayTime || "").split(" ")
     const currentDate = new Date().toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -130,6 +207,8 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
       day: 'numeric',
       timeZone: location.timezone
     })
+
+
 
     return (
       <motion.div
@@ -142,8 +221,7 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
           <div className="w-full max-w-fit mx-auto flex flex-col gap-6">
             {/* Time Display */}
             <div className="text-8xl font-black text-black">
-              {timePart}
-              <span className="text-xl font-bold ml-2">{period}</span>
+              {bestMeetingTime?.time || "--:--"}
             </div>
 
             {/* Location, Date and Weather */}
@@ -156,6 +234,11 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
                 <div className="text-base text-black/50">
                   {currentDate}
                 </div>
+                {bestMeetingTime?.isOutsideBusinessHours && (
+                  <div className="text-sm text-yellow-600 mt-1">
+                    Outside business hours (9 AM - 8 PM)
+                  </div>
+                )}
               </div>
 
               {/* Weather */}
@@ -170,6 +253,23 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
                 </div>
               )}
             </div>
+
+            {/* Meeting Time Explanation */}
+            {bestMeetingTime?.explanation && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-sm text-black/60 cursor-help">
+                      <InfoCircledIcon />
+                      <span>Why this time?</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[250px] whitespace-pre-wrap">{bestMeetingTime.explanation}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
       </motion.div>
@@ -180,15 +280,33 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
     <div className="flex flex-row h-full w-full relative">
       {/* Main Content Area */}
       <div className="flex flex-col h-full w-full">
-        {/* First Location (Top Half) */}
-        {renderLocationSection(firstLocation, firstTime, true)}
+        {isCalculating ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-black/20 border-t-black/60 rounded-full animate-spin" />
+              <span>Calculating best time...</span>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full">
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
+        ) : (
+          <>
+            {/* First Location (Top Half) */}
+            {renderLocationSection(firstLocation, true)}
 
-        {/* Divider */}
-        <div className="w-full h-[2px] bg-gradient-to-r from-transparent from-0% via-black/10 via-50% to-transparent to-100%" />
+            {/* Divider */}
+            <div className="w-full h-[2px] bg-gradient-to-r from-transparent from-0% via-black/10 via-50% to-transparent to-100%" />
 
-        {/* Second Location (Bottom Half) */}
-        {renderLocationSection(secondLocation, secondTime, false)}
+            {/* Second Location (Bottom Half) */}
+            {renderLocationSection(secondLocation, false)}
+          </>
+        )}
       </div>
+
       {/* Meeting Time Display */}
       {currentLocation && (
         <MeetingTimeDisplay
@@ -201,7 +319,6 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
           is24HourFormat={is24HourFormat}
         />
       )}
-
     </div>
   )
 } 
