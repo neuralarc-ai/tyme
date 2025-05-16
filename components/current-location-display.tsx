@@ -250,10 +250,9 @@ export function CurrentLocationDisplay({
       const now = new Date()
       
       try {
-        if (searchedTime && searchedTimezone && timezone) {
-          // Convert the searched time to the current timezone
-          const convertedTime = convertTimeBetweenTimezones(searchedTime, searchedTimezone, timezone)
-          setTime(convertedTime)
+        if (searchedTime) {
+          // Always display the searched time as the main time for current location
+          setTime(searchedTime)
         } else if (timezone) {
           setTime(now.toLocaleTimeString('en-US', {
             hour: '2-digit',
@@ -285,7 +284,7 @@ export function CurrentLocationDisplay({
     const interval = setInterval(updateTime, 1000)
     updateTime()
     return () => clearInterval(interval)
-  }, [timezone, searchedTime, searchedTimezone, date])
+  }, [timezone, searchedTime, date])
 
   const timeInfo = getGradientForTime(time)
   const formattedLocation = formatLocation(location)

@@ -3,6 +3,7 @@ import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightCle
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { MeetingTimeDisplay } from "./meeting-time-display"
+import { toZonedTime, format as formatTz } from 'date-fns-tz'
 
 interface LocationData {
   timezone: string
@@ -116,10 +117,62 @@ const formatLocation = (location: string) => {
     .join(', ')
 }
 
+const getTimeInTimeZone = (
+  referenceTime: string,
+  referenceZone: string,
+  targetZone: string
+) => {
+  try {
+    const [time, period] = referenceTime.split(' ')
+    let [hours, minutes] = time.split(':').map(Number)
+    if (period && period.toLowerCase() === 'pm' && hours < 12) hours += 12
+    if (period && period.toLowerCase() === 'am' && hours === 12) hours = 0
+    const now = new Date()
+    const dateInRefZone = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      hours,
+      minutes
+    )
+    // Convert the date in the reference zone to the target zone
+    const dateInTargetZone = toZonedTime(dateInRefZone, targetZone)
+    return formatTz(dateInTargetZone, 'hh:mm a', { timeZone: targetZone })
+  } catch (e) {
+    return referenceTime
+  }
+}
+
 export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query }: DualLocationDisplayProps) {
   const is24HourFormat = false
-  const firstTime = formatTime(firstLocation.searchedTime || null, is24HourFormat)
-  const secondTime = formatTime(secondLocation.searchedTime || null, is24HourFormat)
+
+  // Use firstLocation as the reference for searched time
+  let referenceTime = firstLocation.searchedTime || null
+  let referenceTimezone = firstLocation.timezone
+
+  // Convert reference time to each location's timezone
+  const firstTime = referenceTime && referenceTimezone && firstLocation.timezone
+    ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, firstLocation.timezone)
+    : new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: firstLocation.timezone
+      });
+
+  const secondTime = referenceTime && referenceTimezone && secondLocation.timezone
+    ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, secondLocation.timezone)
+    : new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: secondLocation.timezone
+      });
+
+  // Optionally, show current location's time as well if needed
+  // const currentTime = referenceTime && referenceTimezone && currentLocation?.timezone
+  //   ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, currentLocation.timezone)
+  //   : null
 
   const renderLocationSection = (location: LocationData, time: string, isFirst: boolean) => {
     const [timePart, period] = time.split(" ")

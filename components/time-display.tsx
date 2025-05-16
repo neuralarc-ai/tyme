@@ -203,93 +203,24 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
             return
           }
 
-          if (result.hasTime) {
-            // Parse the input time
-            const [timePart, period] = result.time!.split(' ')
-            let [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
-            
-            // Convert to 24-hour format
-            if (period?.toLowerCase() === 'pm' && hours < 12) hours += 12
-            if (period?.toLowerCase() === 'am' && hours === 12) hours = 0
-
-            // Create date objects for both timezones
-            const now = new Date()
-            const targetDate = new Date(now.toLocaleString('en-US', { timeZone: result.timezone }))
-            const currentDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
-
-            // Get the timezone offsets in hours
-            const targetOffset = targetDate.getTimezoneOffset() / 60
-            const currentOffset = currentDate.getTimezoneOffset() / 60
-
-            // Calculate the time difference
-            const timeDiff = currentOffset - targetOffset
-
-            // Calculate the local time
-            let localHours = hours + timeDiff
-            if (localHours < 0) localHours += 24
-            if (localHours >= 24) localHours -= 24
-
-            // Format the time
-            const displayHours = localHours % 12 || 12
-            const displayPeriod = localHours >= 12 ? 'PM' : 'AM'
-            const currentLocationTime = `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${displayPeriod}`
-
-            // If there's a second location, calculate its time as well
-            let secondLocationTime = null
-            if (result.secondLocation && result.secondTimezone) {
-              const secondDate = new Date(now.toLocaleString('en-US', { timeZone: result.secondTimezone }))
-              const secondOffset = secondDate.getTimezoneOffset() / 60
-              const secondTimeDiff = currentOffset - secondOffset
-              
-              let secondHours = hours + secondTimeDiff
-              if (secondHours < 0) secondHours += 24
-              if (secondHours >= 24) secondHours -= 24
-              
-              const secondDisplayHours = secondHours % 12 || 12
-              const secondDisplayPeriod = secondHours >= 12 ? 'PM' : 'AM'
-              secondLocationTime = `${String(secondDisplayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${secondDisplayPeriod}`
-            }
-
+          // Only treat current location as reference if there are multiple locations
+          if (result.secondLocation) {
+            // Multi-location: use current location as reference
             setSearchResult({
               ...result,
               time: result.time || null,
               date: result.date || null,
-              currentLocationTime: currentLocationTime || null,
-              secondLocationTime: secondLocationTime || null
+              currentLocationTime: result.time || null,
+              secondLocationTime: null
             })
           } else {
-            // For location-only queries, get current time in that location
-            const now = new Date()
-            const currentTime = now.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-              timeZone: result.timezone
-            })
-            
-            // If there's a second location, get its current time as well
-            let secondLocationTime = null
-            if (result.secondLocation && result.secondTimezone) {
-              secondLocationTime = now.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-                timeZone: result.secondTimezone
-              })
-            }
-            
+            // Single-location: show searched location's time
             setSearchResult({
               ...result,
-              time: currentTime,
-              date: now.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                timeZone: result.timezone
-              }),
+              time: result.time || null,
+              date: result.date || null,
               currentLocationTime: null,
-              secondLocationTime: secondLocationTime
+              secondLocationTime: null
             })
           }
 
