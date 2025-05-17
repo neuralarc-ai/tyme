@@ -75,6 +75,9 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
         const data = await response.json()
 
         if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error("OpenAI API quota exceeded. Please try again later or upgrade your plan.")
+          }
           throw new Error(data.error || 'Failed to calculate meeting time')
         }
 
@@ -110,37 +113,37 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
   }
 
   return (
-    <div className="flex w-1/2 items-center justify-center z-50 p-4">
+    <div className="flex w-[78%] items-center justify-center z-50 p-7">
       {isCalculating ? (
-        <div className="flex items-center justify-center gap-2 text-white/80 bg-white">
-          <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-          <span className="text-lg">Finding best time...</span>
+        <div className="flex items-center justify-center gap-3 text-white/80 backdrop-blur-md bg-black/40 rounded-lg p-4 border border-white/20 shadow-lg">
+          <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+          <span className="text-xl">Finding best time...</span>
         </div>
       ) : error ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="backdrop-blur-md bg-red-500/10 border-red-500/20">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : bestMeetingTime ? (
         bestMeetingTime.time && bestMeetingTime.timezone ? (
-          <div className="flex flex-col items-center gap-4 py-4 px-8 bg-black rounded-lg border border-white/10 relative w-full">
+          <div className="flex flex-col items-center gap-7 py-7 px-12 backdrop-blur-md bg-black/40 rounded-lg border border-white/20 shadow-lg relative w-full">
             {/* Main Meeting Time Section */}
             <div className="w-full">
-              <div className="text-lg font-medium text-white/90 mb-2">
+              <div className="text-xl font-medium text-white/90 mb-3">
                 {bestMeetingTime.isOutsideBusinessHours ? "Suggested Meeting Time" : "Best Meeting Time"}
               </div>
               {bestMeetingTime.isOutsideBusinessHours && (
-                <Alert variant="warning" className="mb-2">
+                <Alert variant="warning" className="mb-3 backdrop-blur-md bg-yellow-500/10 border-yellow-500/20">
                   <AlertDescription>
                     This time is outside business hours (9 AM - 8 PM) for some locations
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="text-2xl font-semibold text-white">{bestMeetingTime.time}</div>
-              <div className="text-lg text-white/70">{bestMeetingTime.timezone}</div>
+              <div className="text-3xl font-semibold text-white">{bestMeetingTime.time}</div>
+              <div className="text-xl text-white/70">{bestMeetingTime.timezone}</div>
               
               {/* Local times for main suggestion */}
               {bestMeetingTime.localTimes && (
-                <div className="w-full mt-2 space-y-1 text-sm text-white/80">
+                <div className="w-full mt-3 space-y-2 text-base text-white/80 backdrop-blur-sm bg-black/30 rounded-lg p-4">
                   {Object.entries(bestMeetingTime.localTimes).map(([timezone, time]) => (
                     <div key={timezone} className="flex justify-between">
                       <span>{timezone}:</span>
@@ -155,15 +158,15 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
 
             {/* Alternate Time Section (if available) */}
             {bestMeetingTime.alternateTime && (
-              <div className="w-full mt-4 pt-4 border-t border-white/10">
-                <div className="text-lg font-medium text-white/90 mb-2">
+              <div className="w-full mt-5 pt-5 border-t border-white/10">
+                <div className="text-xl font-medium text-white/90 mb-3">
                   {bestMeetingTime.isOutsideBusinessHours ? "Business Hours Alternative" : "Alternative Time"}
                 </div>
-                <div className="text-xl font-semibold text-white">{bestMeetingTime.alternateTime.time}</div>
-                <div className="text-md text-white/70">{bestMeetingTime.alternateTime.timezone}</div>
+                <div className="text-2xl font-semibold text-white">{bestMeetingTime.alternateTime.time}</div>
+                <div className="text-lg text-white/70">{bestMeetingTime.alternateTime.timezone}</div>
                 
                 {bestMeetingTime.alternateTime.localTimes && (
-                  <div className="w-full mt-2 space-y-1 text-sm text-white/80">
+                  <div className="w-full mt-3 space-y-2 text-base text-white/80 backdrop-blur-sm bg-black/30 rounded-lg p-4">
                     {Object.entries(bestMeetingTime.alternateTime.localTimes).map(([timezone, time]) => (
                       <div key={timezone} className="flex justify-between">
                         <span>{timezone}:</span>
@@ -181,19 +184,19 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 text-sm text-white/60 cursor-help">
-                    <InfoCircledIcon />
+                  <div className="flex items-center gap-2 text-base text-white/60 cursor-help hover:text-white/80 transition-colors">
+                    <InfoCircledIcon className="w-5 h-5" />
                     <span>Why this time?</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-[250px] whitespace-pre-wrap">{bestMeetingTime.explanation}</p>
+                <TooltipContent className="backdrop-blur-md bg-black/40 border border-white/20 shadow-lg">
+                  <p className="max-w-[300px] whitespace-pre-wrap">{bestMeetingTime.explanation}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             {/* Invite Dialog */}
-            <div className="mt-2">
+            <div className="mt-3">
               <InviteDialog
                 meetingTime={bestMeetingTime.time}
                 meetingDate={meetingDate}
@@ -202,7 +205,7 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
             </div>
           </div>
         ) : (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="backdrop-blur-md bg-red-500/10 border-red-500/20">
             <AlertDescription>
               {bestMeetingTime.explanation || "No suitable time found"}
             </AlertDescription>

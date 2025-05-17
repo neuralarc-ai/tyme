@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
 
 // Function to check if a time is within business hours (9 AM - 8 PM)
 function isWithinBusinessHours(time: string): boolean {
   try {
+    if (!time || typeof time !== 'string') return false
+    
     const [timePart, period] = time.split(' ')
+    if (!timePart || !period) return false
+    
     const [hours, minutes] = timePart.split(':').map(Number)
+    if (isNaN(hours) || isNaN(minutes)) return false
     
     // Convert to 24-hour format
     let hour24 = hours
-    if (period.toLowerCase() === 'pm' && hours !== 12) {
+    const periodLower = period.toLowerCase()
+    if (periodLower === 'pm' && hours !== 12) {
       hour24 += 12
-    } else if (period.toLowerCase() === 'am' && hours === 12) {
+    } else if (periodLower === 'am' && hours === 12) {
       hour24 = 0
     }
 
@@ -22,27 +27,149 @@ function isWithinBusinessHours(time: string): boolean {
   }
 }
 
+// Function to convert time to 24-hour format
+function to24Hour(time: string): number {
+  try {
+    if (!time || typeof time !== 'string') return 0
+    
+    const [timePart, period] = time.split(' ')
+    if (!timePart || !period) return 0
+    
+    const [hours, minutes] = timePart.split(':').map(Number)
+    if (isNaN(hours) || isNaN(minutes)) return 0
+    
+    let hour24 = hours
+    const periodLower = period.toLowerCase()
+    if (periodLower === 'pm' && hours !== 12) {
+      hour24 += 12
+    } else if (periodLower === 'am' && hours === 12) {
+      hour24 = 0
+    }
+    
+    return hour24
+  } catch (error) {
+    console.error("Error converting time to 24-hour format:", error)
+    return 0
+  }
+}
+
+// Function to convert 24-hour format to 12-hour format
+function to12Hour(hour24: number): string {
+  try {
+    if (isNaN(hour24) || hour24 < 0 || hour24 > 23) {
+      return "12:00 AM"
+    }
+    const period = hour24 >= 12 ? 'PM' : 'AM'
+    const hour12 = hour24 % 12 || 12
+    return `${hour12}:00 ${period}`
+  } catch (error) {
+    console.error("Error converting time to 12-hour format:", error)
+    return "12:00 AM"
+  }
+}
+
+// Function to get time difference between timezones
+function getTimeDifference(timezone1: string, timezone2: string): number {
+  try {
+    if (!timezone1 || !timezone2) return 0
+    
+    const date = new Date()
+    const time1 = date.toLocaleTimeString('en-US', { timeZone: timezone1, hour12: false })
+    const time2 = date.toLocaleTimeString('en-US', { timeZone: timezone2, hour12: false })
+    
+    const [hours1] = time1.split(':').map(Number)
+    const [hours2] = time2.split(':').map(Number)
+    
+    if (isNaN(hours1) || isNaN(hours2)) return 0
+    
+    return (hours2 - hours1 + 24) % 24
+  } catch (error) {
+    console.error("Error calculating time difference:", error)
+    return 0
+  }
+}
+
+// Function to find suitable meeting times
+function findSuitableTimes(locations: { timezone: string, location: string }[], preferredTime?: string | null) {
+  const now = new Date()
+  const times = locations.map(loc => {
+    const time = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: loc.timezone
+    })
+    return { time, timezone: loc.timezone, location: loc.location }
+  })
+
+  // Get time differences between all locations
+  const timeDiffs = locations.map((loc1, i) => 
+    locations.map((loc2, j) => ({
+      from: loc1.timezone,
+      to: loc2.timezone,
+      diff: getTimeDifference(loc1.timezone, loc2.timezone)
+    }))
+  )
+
+  // Find overlapping business hours
+  const businessHours = Array.from({ length: 24 }, (_, i) => i)
+  const suitableHours = businessHours.filter(hour => {
+    return locations.every((loc, i) => {
+      const localHour = (hour + timeDiffs[0][i].diff + 24) % 24
+      return localHour >= 9 && localHour <= 20
+    })
+  })
+
+  // If we have a preferred time, try to use it
+  let suggestedTime = null
+  if (preferredTime) {
+    const preferredHour = to24Hour(preferredTime)
+    if (suitableHours.includes(preferredHour)) {
+      suggestedTime = preferredTime
+    }
+  }
+
+  // If no preferred time or preferred time not suitable, use first suitable hour
+  if (!suggestedTime && suitableHours.length > 0) {
+    suggestedTime = to12Hour(suitableHours[0])
+  }
+
+  // If no suitable business hours, find any overlapping time
+  if (!suggestedTime) {
+    const anySuitableHour = businessHours.find(hour => {
+      return locations.every((loc, i) => {
+        const localHour = (hour + timeDiffs[0][i].diff + 24) % 24
+        return localHour >= 0 && localHour <= 23
+      })
+    })
+    if (anySuitableHour !== undefined) {
+      suggestedTime = to12Hour(anySuitableHour)
+    }
+  }
+
+  // Calculate local times for each location
+  const localTimes: { [key: string]: string } = {}
+  if (suggestedTime) {
+    const baseHour = to24Hour(suggestedTime)
+    locations.forEach((loc, i) => {
+      const localHour = (baseHour + timeDiffs[0][i].diff + 24) % 24
+      localTimes[loc.location] = to12Hour(localHour)
+    })
+  }
+
+  return {
+    time: suggestedTime || "No suitable time found",
+    timezone: locations[0].timezone,
+    localTimes,
+    explanation: suggestedTime 
+      ? "This time was chosen to accommodate all participants' time zones."
+      : "No suitable time found that works for all participants.",
+    isOutsideBusinessHours: suggestedTime ? !isWithinBusinessHours(suggestedTime) : false
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    // Check OpenAI API key first
-    const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
-    if (!apiKey) {
-      console.error("OpenAI API key is missing")
-      return NextResponse.json(
-        {
-          error: "Configuration error",
-          time: null,
-          timezone: null,
-          explanation: "OpenAI API key is not configured. Please check your environment variables."
-        },
-        { status: 500 }
-      )
-    }
-
-    const openai = new OpenAI({
-      apiKey: apiKey,
-    })
-
     const { locations, query } = await request.json()
 
     // Validate input
@@ -82,117 +209,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Get current time in each timezone
-    const now = new Date()
-    const times = locations.map(loc => {
-      try {
-        const time = now.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: loc.timezone
-        })
-        return { time, timezone: loc.timezone, location: loc.location }
-      } catch (error) {
-        console.error(`Error formatting time for timezone ${loc.timezone}:`, error)
-        throw new Error(`Invalid timezone: ${loc.timezone}`)
-      }
-    })
+    // Find suitable meeting times
+    const result = findSuitableTimes(locations, preferredTime)
 
-    // Create a prompt for finding both business hours and any suitable time
-    const prompt = `Given these locations and their current times:
-${times.map(t => `${t.location} (${t.timezone}): ${t.time}`).join('\n')}
-
-Find TWO suitable meeting times:
-1. A time that works within business hours (9 AM - 8 PM) for all locations
-2. If no business hours time is found, suggest any suitable time that works for all locations
-
-Consider:
-- Business hours are 9 AM to 8 PM in each location's local time
-- Prefer times that are convenient for all participants
-- Account for timezone differences
-${preferredTime ? `- Consider the preferred time: ${preferredTime}` : ''}
-
-Respond with a JSON object in this format:
-{
-  "time": "string", // The suggested meeting time (e.g., "10:00 AM")
-  "timezone": "string", // The timezone for the suggested time
-  "localTimes": {}, // Object with local times for each location
-  "explanation": "string", // Explanation of why this time was chosen
-  "isOutsideBusinessHours": boolean, // Whether the suggested time is outside business hours for any location
-  "businessHoursTime": { // Optional, only if a business hours time is found when suggesting outside hours
-    "time": "string",
-    "timezone": "string",
-    "localTimes": {}
-  }
-}`
-
-    try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a timezone and scheduling expert. Find optimal meeting times considering business hours and timezone differences."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 1000
-      })
-
-      const response = completion.choices[0].message.content
-      if (!response) {
-        throw new Error("No response from AI")
-      }
-
-      try {
-        const parsedResponse = JSON.parse(response)
-
-        // Validate the response format
-        if (!parsedResponse.time || !parsedResponse.timezone || !parsedResponse.localTimes) {
-          throw new Error("Invalid response format from AI")
-        }
-
-        // If we have a business hours time in the response, prioritize that
-        if (parsedResponse.businessHoursTime) {
-          return NextResponse.json({
-            time: parsedResponse.businessHoursTime.time,
-            timezone: parsedResponse.businessHoursTime.timezone,
-            localTimes: parsedResponse.businessHoursTime.localTimes,
-            explanation: "This time works within business hours (9 AM - 8 PM) for all locations.",
-            isOutsideBusinessHours: false,
-            alternateTime: {
-              time: parsedResponse.time,
-              timezone: parsedResponse.timezone,
-              localTimes: parsedResponse.localTimes,
-              explanation: parsedResponse.explanation,
-              isOutsideBusinessHours: true
-            }
-          })
-        }
-
-        // Otherwise, return the suggested time with appropriate flags
-        return NextResponse.json({
-          time: parsedResponse.time,
-          timezone: parsedResponse.timezone,
-          localTimes: parsedResponse.localTimes,
-          explanation: parsedResponse.explanation,
-          isOutsideBusinessHours: parsedResponse.isOutsideBusinessHours
-        })
-      } catch (parseError) {
-        console.error("Error parsing AI response:", parseError)
-        console.error("Raw response:", response)
-        throw new Error("Failed to parse AI response")
-      }
-
-    } catch (error) {
-      console.error("Error in OpenAI API call:", error)
-      throw new Error(error instanceof Error ? error.message : "Failed to get AI suggestions")
-    }
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Error in meeting-time API:", error)
     return NextResponse.json(

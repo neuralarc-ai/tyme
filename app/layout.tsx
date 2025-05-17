@@ -3,6 +3,10 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { Inter } from "next/font/google"
+import { Footer } from "@/components/footer"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Tyme - Find the best time for your meetings",
@@ -32,7 +36,10 @@ export default function RootLayout({
       </head>
       <body className="fustat">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
+          <main className="min-h-screen flex flex-col">
+            {children}
+            <Footer />
+          </main>
           <Toaster />
         </ThemeProvider>
       </body>
