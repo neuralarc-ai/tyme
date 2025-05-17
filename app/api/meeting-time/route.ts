@@ -27,7 +27,33 @@ function isWithinBusinessHours(time: string): boolean {
   }
 }
 
-// Function to convert time to 24-hour format
+// Function to get time difference between timezones
+function getTimeDifference(timezone1: string, timezone2: string): number {
+  try {
+    if (!timezone1 || !timezone2) return 0
+    
+    const date = new Date()
+    
+    // Get the time in both timezones
+    const time1 = new Date(date.toLocaleString('en-US', { timeZone: timezone1 }))
+    const time2 = new Date(date.toLocaleString('en-US', { timeZone: timezone2 }))
+    
+    // Get the UTC time
+    const utcTime = new Date(date.toISOString())
+    
+    // Calculate the offset in hours for each timezone
+    const offset1 = (time1.getTime() - utcTime.getTime()) / (1000 * 60 * 60)
+    const offset2 = (time2.getTime() - utcTime.getTime()) / (1000 * 60 * 60)
+    
+    // Return the difference between the offsets
+    return offset2 - offset1
+  } catch (error) {
+    console.error("Error calculating time difference:", error)
+    return 0
+  }
+}
+
+// Function to convert time to 24-hour format with minutes
 function to24Hour(time: string): number {
   try {
     if (!time || typeof time !== 'string') return 0
@@ -46,46 +72,34 @@ function to24Hour(time: string): number {
       hour24 = 0
     }
     
-    return hour24
+    // Include minutes in the decimal representation
+    return hour24 + (minutes / 60)
   } catch (error) {
     console.error("Error converting time to 24-hour format:", error)
     return 0
   }
 }
 
-// Function to convert 24-hour format to 12-hour format
+// Function to convert 24-hour format to 12-hour format with minutes
 function to12Hour(hour24: number): string {
   try {
-    if (isNaN(hour24) || hour24 < 0 || hour24 > 23) {
+    if (isNaN(hour24) || hour24 < 0 || hour24 >= 24) {
       return "12:00 AM"
     }
-    const period = hour24 >= 12 ? 'PM' : 'AM'
-    const hour12 = hour24 % 12 || 12
-    return `${hour12}:00 ${period}`
+    
+    const hours = Math.floor(hour24)
+    const minutes = Math.round((hour24 - hours) * 60)
+    
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hour12 = hours % 12 || 12
+    
+    // Format minutes with leading zero if needed
+    const minutesStr = minutes.toString().padStart(2, '0')
+    
+    return `${hour12}:${minutesStr} ${period}`
   } catch (error) {
     console.error("Error converting time to 12-hour format:", error)
     return "12:00 AM"
-  }
-}
-
-// Function to get time difference between timezones
-function getTimeDifference(timezone1: string, timezone2: string): number {
-  try {
-    if (!timezone1 || !timezone2) return 0
-    
-    const date = new Date()
-    const time1 = date.toLocaleTimeString('en-US', { timeZone: timezone1, hour12: false })
-    const time2 = date.toLocaleTimeString('en-US', { timeZone: timezone2, hour12: false })
-    
-    const [hours1] = time1.split(':').map(Number)
-    const [hours2] = time2.split(':').map(Number)
-    
-    if (isNaN(hours1) || isNaN(hours2)) return 0
-    
-    return (hours2 - hours1 + 24) % 24
-  } catch (error) {
-    console.error("Error calculating time difference:", error)
-    return 0
   }
 }
 
@@ -99,7 +113,8 @@ function findSuitableTimes(locations: { timezone: string, location: string }[], 
       hour12: true,
       timeZone: loc.timezone
     })
-    return { time, timezone: loc.timezone, location: loc.location }
+    // Use timezone as the location name for display
+    return { time, timezone: loc.timezone, location: loc.timezone }
   })
 
   // Get time differences between all locations
@@ -111,8 +126,8 @@ function findSuitableTimes(locations: { timezone: string, location: string }[], 
     }))
   )
 
-  // Find overlapping business hours
-  const businessHours = Array.from({ length: 24 }, (_, i) => i)
+  // Find overlapping business hours (now using decimal hours)
+  const businessHours = Array.from({ length: 24 * 2 }, (_, i) => i / 2) // Half-hour intervals
   const suitableHours = businessHours.filter(hour => {
     return locations.every((loc, i) => {
       const localHour = (hour + timeDiffs[0][i].diff + 24) % 24
@@ -124,14 +139,18 @@ function findSuitableTimes(locations: { timezone: string, location: string }[], 
   let suggestedTime = null
   if (preferredTime) {
     const preferredHour = to24Hour(preferredTime)
-    if (suitableHours.includes(preferredHour)) {
-      suggestedTime = preferredTime
+    // Find the closest suitable hour to the preferred time
+    const closestHour = suitableHours.reduce((prev, curr) => {
+      return Math.abs(curr - preferredHour) < Math.abs(prev - preferredHour) ? curr : prev
+    })
+    if (closestHour !== undefined) {
+      suggestedTime = to12Hour(Math.round(closestHour))
     }
   }
 
   // If no preferred time or preferred time not suitable, use first suitable hour
   if (!suggestedTime && suitableHours.length > 0) {
-    suggestedTime = to12Hour(suitableHours[0])
+    suggestedTime = to12Hour(Math.round(suitableHours[0]))
   }
 
   // If no suitable business hours, find any overlapping time
@@ -143,7 +162,7 @@ function findSuitableTimes(locations: { timezone: string, location: string }[], 
       })
     })
     if (anySuitableHour !== undefined) {
-      suggestedTime = to12Hour(anySuitableHour)
+      suggestedTime = to12Hour(Math.round(anySuitableHour))
     }
   }
 
@@ -153,7 +172,8 @@ function findSuitableTimes(locations: { timezone: string, location: string }[], 
     const baseHour = to24Hour(suggestedTime)
     locations.forEach((loc, i) => {
       const localHour = (baseHour + timeDiffs[0][i].diff + 24) % 24
-      localTimes[loc.location] = to12Hour(localHour)
+      // Use timezone as the key instead of location
+      localTimes[loc.timezone] = to12Hour(localHour)
     })
   }
 

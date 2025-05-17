@@ -144,14 +144,18 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
               {/* Local times for main suggestion */}
               {bestMeetingTime.localTimes && (
                 <div className="w-full mt-3 space-y-2 text-base text-white/80 backdrop-blur-sm bg-black/30 rounded-lg p-4">
-                  {Object.entries(bestMeetingTime.localTimes).map(([timezone, time]) => (
-                    <div key={timezone} className="flex justify-between">
-                      <span>{timezone}:</span>
-                      <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
-                        {time}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(bestMeetingTime.localTimes).map(([timezone, time]) => {
+                    // Format timezone for display (e.g., "Asia/Calcutta" -> "Asia/Calcutta")
+                    const displayTimezone = timezone
+                    return (
+                      <div key={timezone} className="flex justify-between">
+                        <span>{displayTimezone}:</span>
+                        <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
+                          {time}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -167,14 +171,18 @@ export function MeetingTimeDisplay({ locations, query }: MeetingTimeDisplayProps
                 
                 {bestMeetingTime.alternateTime.localTimes && (
                   <div className="w-full mt-3 space-y-2 text-base text-white/80 backdrop-blur-sm bg-black/30 rounded-lg p-4">
-                    {Object.entries(bestMeetingTime.alternateTime.localTimes).map(([timezone, time]) => (
-                      <div key={timezone} className="flex justify-between">
-                        <span>{timezone}:</span>
-                        <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
-                          {time}
-                        </span>
-                      </div>
-                    ))}
+                    {Object.entries(bestMeetingTime.alternateTime.localTimes).map(([timezone, time]) => {
+                      // Format timezone for display (e.g., "Asia/Calcutta" -> "Asia/Calcutta")
+                      const displayTimezone = timezone
+                      return (
+                        <div key={timezone} className="flex justify-between">
+                          <span>{displayTimezone}:</span>
+                          <span className={time.includes('PM') && parseInt(time) >= 8 || time.includes('AM') && parseInt(time) < 9 ? 'text-yellow-400' : ''}>
+                            {time}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
