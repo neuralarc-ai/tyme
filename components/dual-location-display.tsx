@@ -169,11 +169,6 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
         timeZone: secondLocation.timezone
       });
 
-  // Optionally, show current location's time as well if needed
-  // const currentTime = referenceTime && referenceTimezone && currentLocation?.timezone
-  //   ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, currentLocation.timezone)
-  //   : null
-
   const renderLocationSection = (location: LocationData, time: string, isFirst: boolean) => {
     const [timePart, period] = time.split(" ")
     const currentDate = new Date().toLocaleDateString('en-US', {
@@ -199,30 +194,27 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
               <span className="text-xl font-bold ml-2">{period}</span>
             </div>
 
-            {/* Location, Date and Weather */}
-            <div className="flex flex-row justify-between items-center">
-              {/* Location and Date */}
-              <div className="flex flex-col">
-                <div className="text-lg font-semibold text-black/50">
-                  {formatLocation(location.location)}
-                </div>
-                <div className="text-base text-black/50">
-                  {currentDate}
-                </div>
+            {/* Location and Date */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-2xl font-medium text-black/70">
+                {formatLocation(location.location)}
               </div>
-
-              {/* Weather */}
-              {location.weather && (
-                <div className="flex flex-col items-end">
-                  <div className="text-3xl text-black">
-                    {getWeatherIcon(location.weather)}
-                  </div>
-                  <div className="text-xl text-black">
-                    {Math.round(location.weather.main.temp)}°C
-                  </div>
-                </div>
-              )}
+              <div className="text-lg text-black/50">
+                {currentDate}
+              </div>
             </div>
+
+            {/* Weather Display */}
+            {location.weather && (
+              <div className="flex items-center gap-2">
+                <span className="text-4xl">
+                  {getWeatherIcon(location.weather)}
+                </span>
+                <span className="text-2xl font-medium text-black/70">
+                  {Math.round(location.weather.main.temp)}°C
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -242,18 +234,15 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
         {/* Second Location (Bottom Half) */}
         {renderLocationSection(secondLocation, secondTime, false)}
       </div>
-      {/* Meeting Time Display */}
-      {currentLocation && (
-        <MeetingTimeDisplay
-          locations={[
-            { timezone: currentLocation.timezone, location: currentLocation.location },
-            { timezone: firstLocation.timezone, location: firstLocation.location },
-            { timezone: secondLocation.timezone, location: secondLocation.location }
-          ]}
-          query={query}
-        />
-      )}
 
+      {/* Meeting Time Display */}
+      <MeetingTimeDisplay
+        locations={[
+          { timezone: firstLocation.timezone, location: firstLocation.location },
+          { timezone: secondLocation.timezone, location: secondLocation.location }
+        ]}
+        query={query}
+      />
     </div>
   )
 } 
