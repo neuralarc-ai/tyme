@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { CalendarIcon } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface InviteDialogProps {
   meetingTime: string
@@ -25,6 +26,8 @@ interface InviteDialogProps {
 export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [linkOption, setLinkOption] = useState<'paste' | 'generate'>('paste')
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
   const [formData, setFormData] = useState({
     senderName: "",
     senderEmail: "",
@@ -36,6 +39,7 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
 
   // Function to create a Google Calendar event and get a valid Meet link
   const createGoogleMeetEvent = async () => {
+    setIsGeneratingLink(true)
     try {
       const response = await fetch('/api/generate-meet', {
         method: 'POST',
@@ -56,22 +60,18 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         throw new Error(data.message || "Failed to create meeting")
       }
 
+      setFormData(prev => ({
+        ...prev,
+        meetingLink: data.meetLink
+      }))
       return data.meetLink
     } catch (error) {
       console.error("Error creating meeting:", error)
       throw new Error("Failed to create Google Meet link")
+    } finally {
+      setIsGeneratingLink(false)
     }
   }
-
-  // Generate meeting link when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      setFormData(prev => ({
-        ...prev,
-        meetingLink: "Generating meeting link..."
-      }))
-    }
-  }, [isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,14 +94,16 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         throw new Error("Please enter valid recipient email addresses")
       }
 
-      // Create Google Calendar event and get Meet link
-      const meetLink = await createGoogleMeetEvent()
-      
-      // Update form data with the valid Meet link
-      setFormData(prev => ({
-        ...prev,
-        meetingLink: meetLink
-      }))
+      // Validate meeting link
+      if (!formData.meetingLink) {
+        throw new Error("Please provide a meeting link")
+      }
+
+      // If generate option is selected and no link exists, generate one
+      let meetLink = formData.meetingLink
+      if (linkOption === 'generate' && !formData.meetingLink) {
+        meetLink = await createGoogleMeetEvent()
+      }
 
       // Send invitation email
       const response = await fetch('/api/send-invite', {
@@ -138,6 +140,7 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
         description: "",
         meetingLink: ""
       })
+      setLinkOption('paste')
       setIsOpen(false)
 
     } catch (error) {
@@ -225,19 +228,64 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="meetingLink" className="text-white/70">Google Meet Link</Label>
-              <Input
-                id="meetingLink"
-                value={formData.meetingLink}
-                readOnly
-                className="bg-white/5 border-white/20 text-white backdrop-blur-sm"
-              />
-              <p className="text-sm text-white/50">
-                {formData.meetingLink === "Generating meeting link..." 
-                  ? "Meeting link will be generated when you send the invitation"
-                  : "Meeting link is automatically generated"}
-              </p>
+            <div className="space-y-4">
+              <Label className="text-white/70">Meeting Link Option</Label>
+              <RadioGroup
+                value={linkOption}
+                onValueChange={(value) => {
+                  setLinkOption(value as 'paste' | 'generate')
+                  setFormData(prev => ({ ...prev, meetingLink: '' }))
+                }}
+                className="flex flex-col space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="paste" id="paste" className="border-white/20" />
+                  <Label htmlFor="paste" className="text-white/70">Paste Meeting Link</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="generate" id="generate" className="border-white/20" />
+                  <Label htmlFor="generate" className="text-white/70">Generate Google Meet Link</Label>
+                </div>
+              </RadioGroup>
+
+              <div className="space-y-2">
+                <Label htmlFor="meetingLink" className="text-white/70">Meeting Link</Label>
+                {linkOption === 'paste' ? (
+                  <Input
+                    id="meetingLink"
+                    value={formData.meetingLink}
+                    onChange={(e) => setFormData(prev => ({ ...prev, meetingLink: e.target.value }))}
+                    placeholder="Paste your meeting link here"
+                    required
+                    className="bg-white/5 border-white/20 text-white backdrop-blur-sm"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      id="meetingLink"
+                      value={formData.meetingLink}
+                      readOnly
+                      placeholder="Click generate to create a meeting link"
+                      className="bg-white/5 border-white/20 text-white backdrop-blur-sm"
+                    />
+                    <Button
+                      type="button"
+                      onClick={createGoogleMeetEvent}
+                      disabled={isGeneratingLink}
+                      className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    >
+                      {isGeneratingLink ? (
+                        <>
+                          <span className="mr-2">Generating...</span>
+                          <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        </>
+                      ) : (
+                        "Generate Meeting Link"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -252,7 +300,7 @@ export function InviteDialog({ meetingTime, meetingDate, timezone }: InviteDialo
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading}
+              disabled={isLoading || (linkOption === 'generate' && !formData.meetingLink)}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               {isLoading ? (

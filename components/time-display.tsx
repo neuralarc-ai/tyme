@@ -226,8 +226,10 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
 
           // Get weather for the searched location
           if (result.location) {
+            // Extract just the city name (first part before any comma)
+            const cityName = result.location.split(',')[0].trim()
             const weatherResponse = await fetch(
-              `https://api.openweathermap.org/data/2.5/weather?q=${result.location}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
+              `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(cityName)}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
             )
             if (weatherResponse.ok) {
               const weatherData = await weatherResponse.json()
@@ -237,8 +239,10 @@ export default function TimeDisplay({ searchQuery }: TimeDisplayProps) {
 
           // Get weather for the second location if it exists
           if (result.secondLocation) {
+            // Extract just the city name (first part before any comma)
+            const cityName = result.secondLocation.split(',')[0].trim()
             const secondWeatherResponse = await fetch(
-              `https://api.openweathermap.org/data/2.5/weather?q=${result.secondLocation}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
+              `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(cityName)}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`
             )
             if (secondWeatherResponse.ok) {
               const secondWeatherData = await secondWeatherResponse.json()

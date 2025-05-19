@@ -1,9 +1,13 @@
+"use client"
+
 import { motion } from "framer-motion"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { MeetingTimeDisplay } from "./meeting-time-display"
 import { toZonedTime, format as formatTz } from 'date-fns-tz'
+import { getWeatherIcon } from "@/lib/weather-icons"
+import { formatLocation } from "@/lib/utils"
 
 interface LocationData {
   timezone: string
@@ -26,31 +30,6 @@ interface DualLocationDisplayProps {
   secondLocation: LocationData
   currentLocation?: LocationData
   query?: string
-}
-
-const getWeatherIcon = (weatherData: LocationData["weather"]) => {
-  if (!weatherData) return '☀️'
-  const main = weatherData.weather[0].main.toLowerCase()
-  const hour = new Date().getHours()
-  const isNightTime = hour < 6 || hour > 18
-
-  switch (main) {
-    case 'clear':
-      return isNightTime ? <WiNightClear size={32} /> : <WiDaySunny size={32} />
-    case 'clouds':
-      return isNightTime ? <WiNightCloudy size={32} /> : <WiDayCloudy size={32} />
-    case 'rain':
-      return <WiRain size={32} />
-    case 'snow':
-      return <WiSnow size={32} />
-    case 'thunderstorm':
-      return <WiThunderstorm size={32} />
-    case 'fog':
-    case 'mist':
-      return <WiFog size={32} />
-    default:
-      return isNightTime ? <WiNightCloudy size={32} /> : <WiDayCloudy size={32} />
-  }
 }
 
 const formatTime = (time: string | null, is24HourFormat: boolean) => {
@@ -107,16 +86,7 @@ const formatTime = (time: string | null, is24HourFormat: boolean) => {
   }
 }
 
-const formatLocation = (location: string) => {
-  // Split by comma and capitalize each word
-  return location.split(',')
-    .map(part => part.trim())
-    .map(part => part.split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' '))
-    .join(', ')
-}
-
+// Move utility functions outside component
 const getTimeInTimeZone = (
   referenceTime: string,
   referenceZone: string,
@@ -135,7 +105,6 @@ const getTimeInTimeZone = (
       hours,
       minutes
     )
-    // Convert the date in the reference zone to the target zone
     const dateInTargetZone = toZonedTime(dateInRefZone, targetZone)
     return formatTz(dateInTargetZone, 'hh:mm a', { timeZone: targetZone })
   } catch (e) {
@@ -146,35 +115,36 @@ const getTimeInTimeZone = (
 export function DualLocationDisplay({ firstLocation, secondLocation, currentLocation, query }: DualLocationDisplayProps) {
   const is24HourFormat = false
 
-  // Use firstLocation as the reference for searched time
-  let referenceTime = firstLocation.searchedTime || null
-  let referenceTimezone = firstLocation.timezone
+  // Memoize time calculations
+  const times = useMemo(() => {
+    // Use firstLocation as the reference for searched time
+    const referenceTime = firstLocation.searchedTime || null
+    const referenceTimezone = firstLocation.timezone
 
-  // Convert reference time to each location's timezone
-  const firstTime = referenceTime && referenceTimezone && firstLocation.timezone
-    ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, firstLocation.timezone)
-    : new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: firstLocation.timezone
-      });
+    // Convert reference time to each location's timezone
+    const firstTime = referenceTime && referenceTimezone && firstLocation.timezone
+      ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, firstLocation.timezone)
+      : new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: firstLocation.timezone
+        });
 
-  const secondTime = referenceTime && referenceTimezone && secondLocation.timezone
-    ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, secondLocation.timezone)
-    : new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: secondLocation.timezone
-      });
+    const secondTime = referenceTime && referenceTimezone && secondLocation.timezone
+      ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, secondLocation.timezone)
+      : new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: secondLocation.timezone
+        });
 
-  // Optionally, show current location's time as well if needed
-  // const currentTime = referenceTime && referenceTimezone && currentLocation?.timezone
-  //   ? getTimeInTimeZone(formatTime(referenceTime, false), referenceTimezone, currentLocation.timezone)
-  //   : null
+    return { firstTime, secondTime }
+  }, [firstLocation, secondLocation])
 
-  const renderLocationSection = (location: LocationData, time: string, isFirst: boolean) => {
+  // Memoize location section render function
+  const renderLocationSection = useCallback((location: LocationData, time: string, isFirst: boolean) => {
     const [timePart, period] = time.split(" ")
     const currentDate = new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -183,6 +153,19 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
       day: 'numeric',
       timeZone: location.timezone
     })
+
+    // Memoize weather icon and temperature
+    const weatherIcon = useMemo(() => 
+      location.weather ? getWeatherIcon(location.weather.weather[0].main, false) : null
+    , [location.weather])
+
+    const temperature = useMemo(() => 
+      location.weather ? `${Math.round(location.weather.main.temp)}°C` : null
+    , [location.weather])
+
+    const formattedLocationName = useMemo(() => 
+      formatLocation(location.location)
+    , [location.location])
 
     return (
       <motion.div
@@ -204,7 +187,7 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
               {/* Location and Date */}
               <div className="flex flex-col">
                 <div className="text-lg font-semibold text-black/50">
-                  {formatLocation(location.location)}
+                  {formattedLocationName}
                 </div>
                 <div className="text-base text-black/50">
                   {currentDate}
@@ -215,10 +198,10 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
               {location.weather && (
                 <div className="flex flex-col items-end">
                   <div className="text-3xl text-black">
-                    {getWeatherIcon(location.weather)}
+                    {weatherIcon}
                   </div>
                   <div className="text-xl text-black">
-                    {Math.round(location.weather.main.temp)}°C
+                    {temperature}
                   </div>
                 </div>
               )}
@@ -227,33 +210,37 @@ export function DualLocationDisplay({ firstLocation, secondLocation, currentLoca
         </div>
       </motion.div>
     )
-  }
+  }, [])
+
+  // Memoize meeting time display locations
+  const meetingLocations = useMemo(() => 
+    currentLocation ? [
+      { timezone: currentLocation.timezone, location: currentLocation.location },
+      { timezone: firstLocation.timezone, location: firstLocation.location },
+      { timezone: secondLocation.timezone, location: secondLocation.location }
+    ] : []
+  , [currentLocation, firstLocation, secondLocation])
 
   return (
     <div className="flex flex-row h-full w-full relative">
       {/* Main Content Area */}
       <div className="flex flex-col h-full w-full">
         {/* First Location (Top Half) */}
-        {renderLocationSection(firstLocation, firstTime, true)}
+        {renderLocationSection(firstLocation, times.firstTime, true)}
 
         {/* Divider */}
         <div className="w-full h-[2px] bg-gradient-to-r from-transparent from-0% via-black/10 via-50% to-transparent to-100%" />
 
         {/* Second Location (Bottom Half) */}
-        {renderLocationSection(secondLocation, secondTime, false)}
+        {renderLocationSection(secondLocation, times.secondTime, false)}
       </div>
       {/* Meeting Time Display */}
       {currentLocation && (
         <MeetingTimeDisplay
-          locations={[
-            { timezone: currentLocation.timezone, location: currentLocation.location },
-            { timezone: firstLocation.timezone, location: firstLocation.location },
-            { timezone: secondLocation.timezone, location: secondLocation.location }
-          ]}
+          locations={meetingLocations}
           query={query}
         />
       )}
-
     </div>
   )
 } 

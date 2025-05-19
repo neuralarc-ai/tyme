@@ -1,7 +1,11 @@
-import { useEffect, useState, useRef } from "react"
+"use client"
+
+import { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiNightClear, WiDayCloudy, WiNightCloudy } from "react-icons/wi"
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz'
 import { motion } from "framer-motion"
+import { getWeatherIcon } from "../lib/weather-icons"
+import { formatLocation } from "../lib/utils"
 
 interface CurrentLocationDisplayProps {
   timezone: string
@@ -10,29 +14,6 @@ interface CurrentLocationDisplayProps {
   searchedTime: string | null
   searchedTimezone: string | null
   date: string | null
-}
-
-const getWeatherIcon = (weatherCode: string, isNight: boolean) => {
-  const hour = new Date().getHours()
-  const isNightTime = hour < 6 || hour > 18
-
-  switch (weatherCode.toLowerCase()) {
-    case 'clear':
-      return isNightTime ? <WiNightClear size={48} /> : <WiDaySunny size={48} />
-    case 'clouds':
-      return isNightTime ? <WiNightCloudy size={48} /> : <WiDayCloudy size={48} />
-    case 'rain':
-      return <WiRain size={48} />
-    case 'snow':
-      return <WiSnow size={48} />
-    case 'thunderstorm':
-      return <WiThunderstorm size={48} />
-    case 'fog':
-    case 'mist':
-      return <WiFog size={48} />
-    default:
-      return isNightTime ? <WiNightCloudy size={48} /> : <WiDayCloudy size={48} />
-  }
 }
 
 const getGradientForTime = (time: string) => {
@@ -80,80 +61,6 @@ const isValidTimezone = (timezone: string): boolean => {
     return true
   } catch (e) {
     return false
-  }
-}
-
-const formatLocation = (location: string): string => {
-  try {
-    // Split by comma and clean up parts
-    const parts = location.split(',').map(part => part.trim())
-    
-    // If we have at least two parts
-    if (parts.length >= 2) {
-      // Find the country (usually the last part)
-      const country = parts[parts.length - 1]
-      
-      // Find the city (usually the first part, but could be second if first is a postal code)
-      let city = parts[0]
-      if (!isNaN(Number(parts[0]))) {
-        // If first part is a number (postal code), use the second part as city
-        city = parts[1]
-      }
-      
-      return `${city}, ${country}`
-    }
-    
-    // If we only have one part, return it as is
-    return parts[0]
-  } catch (error) {
-    console.error('Error formatting location:', error)
-    return location
-  }
-}
-
-const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimezone: string): string => {
-  try {
-    // Parse the input time
-    const [timePart, period] = time.split(' ')
-    const [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
-    
-    // Convert to 24-hour format
-    let targetHours = hours
-    if (period) {
-      if (period.toLowerCase() === 'pm' && hours < 12) {
-        targetHours += 12
-      } else if (period.toLowerCase() === 'am' && hours === 12) {
-        targetHours = 0
-      }
-    }
-
-    // Create a date object for the input time
-    const now = new Date()
-    const date = new Date(now)
-    date.setHours(targetHours, minutes, 0, 0)
-
-    // Get the timezone offsets
-    const fromOffset = new Date().toLocaleString('en-US', { timeZone: fromTimezone, timeZoneName: 'longOffset' }).split(' ').pop() || ''
-    const toOffset = new Date().toLocaleString('en-US', { timeZone: toTimezone, timeZoneName: 'longOffset' }).split(' ').pop() || ''
-
-    // Calculate the time difference in hours
-    const fromHours = parseInt(fromOffset.replace('GMT', '').split(':')[0])
-    const toHours = parseInt(toOffset.replace('GMT', '').split(':')[0])
-    const timeDiff = toHours - fromHours
-
-    // Adjust the time based on the timezone difference
-    date.setHours(date.getHours() + timeDiff)
-
-    // Format the time in 12-hour format
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: toTimezone
-    })
-  } catch (error) {
-    console.error('Error converting time:', error)
-    return time
   }
 }
 
@@ -233,6 +140,52 @@ const formatDate = (dateString: string | null, timezone: string) => {
   }
 }
 
+const convertTimeBetweenTimezones = (time: string, fromTimezone: string, toTimezone: string): string => {
+  try {
+    // Parse the input time
+    const [timePart, period] = time.split(' ')
+    const [hours, minutes] = timePart.split(':').map(num => parseInt(num, 10))
+    
+    // Convert to 24-hour format
+    let targetHours = hours
+    if (period) {
+      if (period.toLowerCase() === 'pm' && hours < 12) {
+        targetHours += 12
+      } else if (period.toLowerCase() === 'am' && hours === 12) {
+        targetHours = 0
+      }
+    }
+
+    // Create a date object for the input time
+    const now = new Date()
+    const date = new Date(now)
+    date.setHours(targetHours, minutes, 0, 0)
+
+    // Get the timezone offsets
+    const fromOffset = new Date().toLocaleString('en-US', { timeZone: fromTimezone, timeZoneName: 'longOffset' }).split(' ').pop() || ''
+    const toOffset = new Date().toLocaleString('en-US', { timeZone: toTimezone, timeZoneName: 'longOffset' }).split(' ').pop() || ''
+
+    // Calculate the time difference in hours
+    const fromHours = parseInt(fromOffset.replace('GMT', '').split(':')[0])
+    const toHours = parseInt(toOffset.replace('GMT', '').split(':')[0])
+    const timeDiff = toHours - fromHours
+
+    // Adjust the time based on the timezone difference
+    date.setHours(date.getHours() + timeDiff)
+
+    // Format the time in 12-hour format
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: toTimezone
+    })
+  } catch (error) {
+    console.error('Error converting time:', error)
+    return time
+  }
+}
+
 export function CurrentLocationDisplay({
   timezone,
   location,
@@ -244,51 +197,65 @@ export function CurrentLocationDisplay({
   const [time, setTime] = useState<string>("")
   const [displayDate, setDisplayDate] = useState<string>("")
   const isInitialMount = useRef(true)
+  const lastUpdateRef = useRef<number>(0)
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date()
-      
-      try {
-        if (searchedTime) {
-          // Always display the searched time as the main time for current location
-          setTime(searchedTime)
-        } else if (timezone) {
-          setTime(now.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-            timeZone: timezone
-          }))
-        } else {
-          setTime(now.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          }))
-        }
+  // Memoize the time update function
+  const updateTime = useCallback(() => {
+    const now = Date.now()
+    // Only update if more than 900ms have passed (to avoid unnecessary updates)
+    if (now - lastUpdateRef.current < 900) return
+    lastUpdateRef.current = now
 
-        // Update date
-        setDisplayDate(formatDate(date, timezone))
-      } catch (error) {
-        console.error('Error updating time:', error)
-        setTime(now.toLocaleTimeString('en-US', {
+    try {
+      if (searchedTime) {
+        setTime(searchedTime)
+      } else if (timezone) {
+        setTime(new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: timezone
+        }))
+      } else {
+        setTime(new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
           hour12: true
         }))
-        setDisplayDate(formatDate(null, timezone))
       }
-    }
 
-    const interval = setInterval(updateTime, 1000)
-    updateTime()
-    return () => clearInterval(interval)
+      setDisplayDate(formatDate(date, timezone))
+    } catch (error) {
+      console.error('Error updating time:', error)
+      setTime(new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }))
+      setDisplayDate(formatDate(null, timezone))
+    }
   }, [timezone, searchedTime, date])
 
-  const timeInfo = getGradientForTime(time)
-  const formattedLocation = formatLocation(location)
-  const [timePart, period] = time.split(" ")
+  useEffect(() => {
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [updateTime])
+
+  // Memoize expensive calculations
+  const timeInfo = useMemo(() => getGradientForTime(time), [time])
+  const formattedLocation = useMemo(() => formatLocation(location), [location])
+  const [timePart, period] = useMemo(() => time.split(" "), [time])
+
+  // Memoize the weather icon
+  const weatherIcon = useMemo(() => 
+    weather ? getWeatherIcon(weather.weather[0].main, false) : null
+  , [weather])
+
+  // Memoize the temperature
+  const temperature = useMemo(() => 
+    weather ? `${Math.round(weather.main.temp)}°C` : null
+  , [weather])
 
   return (
     <div className="grain w-full h-full bg-white">
@@ -360,10 +327,10 @@ export function CurrentLocationDisplay({
                 className="flex items-center gap-2"
               >
                 <span className="text-4xl lg:text-3xl font-light text-black">
-                  {getWeatherIcon(weather.weather[0].main, false)}
+                  {weatherIcon}
                 </span>
                 <span className="text-4xl lg:text-3xl font-light text-black">
-                  {Math.round(weather.main.temp)}°C
+                  {temperature}
                 </span>
               </motion.div>
             )}

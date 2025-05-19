@@ -116,3 +116,12 @@ export function parseTimeString(timeStr: string): Date | null {
     return null
   }
 }
+
+export const formatLocation = (location: string) => {
+  return location.split(',')
+    .map(part => part.trim())
+    .map(part => part.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' '))
+    .join(', ')
+}
